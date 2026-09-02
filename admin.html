@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة إدارة زمزم</title>
+    <meta name="description" content="لوحة إدارة منتجات زمزم لإدارة العلب والألواح والتغليف." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="src/css/admin.css" />
+  </head>
+  <body>
+    <div class="auth-screen" id="authScreen">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="mini-logo">Z</div>
+          <div>
+            <strong>زمزم</strong>
+            <small>لوحة الإدارة</small>
+          </div>
+        </div>
+
+        <h2>تسجيل الدخول</h2>
+        <p>أدخل بيانات الدخول للوصول إلى لوحة الإدارة.</p>
+
+        <form id="loginForm">
+          <label>
+            اسم المستخدم
+            <input id="username" type="text" placeholder="admin" required />
+          </label>
+          <label>
+            كلمة المرور
+            <input id="password" type="password" placeholder="••••••••" required />
+          </label>
+          <button class="btn btn-primary wide" type="submit">دخول</button>
+        </form>
+
+        <div class="demo-credentials">
+          <span>بيانات تجريبية:</span>
+          <strong>admin / zmzm123</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-shell hidden" id="adminShell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="mini-logo">Z</div>
+          <div>
+            <strong>زمزم</strong>
+            <small>لوحة الإدارة</small>
+          </div>
+        </div>
+
+        <nav class="side-menu">
+          <a class="active" href="#dashboard">نظرة عامة</a>
+          <a href="#products">المنتجات</a>
+          <a href="#add-product">إضافة منتج</a>
+          <a href="index.html">المتجر</a>
+        </nav>
+      </aside>
+
+      <main class="admin-main" id="dashboard">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">لوحة تحكم</span>
+            <h1>إدارة المنتجات</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary" type="button" id="resetDemo">إرجاع البيانات التجريبية</button>
+            <button class="btn btn-secondary" type="button" id="logoutBtn">تسجيل الخروج</button>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="stat-card">
+            <span>إجمالي المنتجات</span>
+            <strong id="totalProducts">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>ألواح الكيك</span>
+            <strong id="boardsCount">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>علب الكيك</span>
+            <strong id="boxesCount">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>تغليف</span>
+            <strong id="packagingCount">0</strong>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <div class="panel" id="add-product">
+            <div class="panel-head">
+              <h2 id="formTitle">إضافة منتج</h2>
+            </div>
+
+            <form id="productForm">
+              <input type="hidden" id="productId" />
+
+              <div class="field-grid">
+                <label>
+                  اسم المنتج
+                  <input id="name" name="name" type="text" placeholder="مثال: علبة كيك بيضاء 25×25×25" required />
+                </label>
+
+                <label>
+                  الفئة
+                  <select id="category" name="category" required>
+                    <option value="boards">ألواح الكيك</option>
+                    <option value="boxes">علب الكيك</option>
+                    <option value="cupcakes">كب كيك</option>
+                    <option value="packaging">تغليف</option>
+                  </select>
+                </label>
+
+                <label>
+                  السعر (ج.م)
+                  <input id="price" name="price" type="number" min="1" step="1" required />
+                </label>
+
+                <label>
+                  السعر القديم (اختياري)
+                  <input id="oldPrice" name="oldPrice" type="number" min="0" step="1" />
+                </label>
+
+                <label>
+                  العلامة
+                  <input id="tag" name="tag" type="text" placeholder="مثال: جديد / عرض / الأكثر مبيعاً" />
+                </label>
+
+                <label>
+                  التقييم
+                  <input id="rating" name="rating" type="number" min="1" max="5" step="0.1" value="4.8" />
+                </label>
+
+                <label class="full-span">
+                  الوصف / البيانات
+                  <input id="meta" name="meta" type="text" placeholder="مثال: ذهبي · 20 سم · 3 مم" required />
+                </label>
+
+                <label class="full-span">
+                  مواصفات المنتج (JSON أو نص)
+                  <textarea id="specs" name="specs" rows="4" placeholder='{"diameter":"20 سم","thickness":"3 مم","material":"كرتون"}'></textarea>
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" id="saveProduct">حفظ المنتج</button>
+                <button class="btn btn-secondary" type="button" id="cancelEdit">إلغاء</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel" id="products">
+            <div class="panel-head">
+              <h2>قائمة المنتجات</h2>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الاسم</th>
+                    <th>الفئة</th>
+                    <th>السعر</th>
+                    <th>التقييم</th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="productTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="src/js/supabase-config.js"></script>
+    <script src="src/js/admin.js"></script>
+  </body>
+</html>

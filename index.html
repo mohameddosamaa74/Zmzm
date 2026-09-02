@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>زمزم | تغليف الكيك باحتراف</title>
+    <meta name="description" content="ألواح وعلب وتغليف كيك فاخر للمخابز والأفراد. جودة موثوقة وتوصيل سريع داخل مصر." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="src/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <button class="menu-toggle" id="menuToggle" aria-label="فتح القائمة">☰</button>
+        <a class="logo" href="#home" aria-label="زمزم، الصفحة الرئيسية"><span class="logo-mark">Z</span><span>زمزم</span></a>
+        <nav class="main-nav" id="mainNav" aria-label="التنقل الرئيسي">
+          <a class="active" href="#home">الرئيسية</a><a href="#shop">المتجر</a><a href="#about">عن زمزم</a><a href="#contact">تواصل معنا</a>
+        </nav>
+        <div class="header-actions">
+          <button class="header-icon search-toggle" id="searchToggle" aria-label="بحث">⌕</button>
+          <button class="header-icon cart-toggle" id="cartToggle" aria-label="السلة">
+            <span class="cart-icon" aria-hidden="true">
+              <span class="cart-basket"></span>
+              <span class="cart-handle"></span>
+            </span>
+            <b id="cartCount">0</b>
+          </button>
+        </div>
+      </div>
+      <div class="search-panel" id="searchPanel"><div class="container search-inner"><input id="searchInput" type="search" placeholder="ابحث عن منتج أو كود المنتج..." aria-label="البحث عن منتج" /><button id="closeSearch" type="button">إغلاق</button></div></div>
+    </header>
+
+    <main id="home">
+      <section class="hero"><div class="container hero-grid">
+        <div class="hero-copy"><span class="kicker">تغليف يصنع الفرق</span><h1>كل ما يحتاجه كيكك<br /><em>ليظهر بأجمل صورة.</em></h1><p>ألواح، علب وتفاصيل صغيرة مختارة بعناية لتمنح كل قطعة حلوى حضوراً يستحقه.</p><div class="hero-actions"><a href="#shop" class="btn btn-primary">تسوق الآن <span>←</span></a></div></div>
+        <div class="hero-art" aria-label="تشكيلة علب وألواح الكيك">
+          <div class="art-glow"></div>
+          <img class="hero-reference-image" src="public/assets/zmzm-hero.png" alt="منتجات تغليف الكيك من زمزم" />
+        </div>
+      </div></section>
+      <section class="trust-strip"><div class="container trust-grid"><div><span class="trust-icon">✦</span><strong>خامات موثوقة</strong><small>جودة تليق بمنتجك</small></div><div><span class="trust-icon">↗</span><strong>توصيل سريع</strong><small>لباب بيتك أو مخبزك</small></div><div><span class="trust-icon">◇</span><strong>مقاسات متعددة</strong><small>حل لكل حجم وشكل</small></div><div><span class="trust-icon">♡</span><strong>دعم حقيقي</strong><small>نساعدك في كل خطوة</small></div></div></section>
+
+      <section class="section products-section" id="shop"><div class="container"><div class="section-head"><div><span class="kicker">مختاراتنا</span><h2>الأكثر طلباً</h2></div><div class="filter-pills" id="filterBar"><button class="active" data-filter="all">الكل</button><button data-filter="boards">ألواح الكيك</button><button data-filter="boxes">علب الكيك</button><button data-filter="cupcakes">كب كيك</button><button data-filter="packaging">تغليف</button></div></div><div class="catalog-toolbar"><span id="resultsCount">عرض ٨ منتجات</span><select id="sortSelect" aria-label="ترتيب المنتجات"><option value="popular">الأكثر طلباً</option><option value="low">السعر: الأقل أولاً</option><option value="high">السعر: الأعلى أولاً</option><option value="new">الأحدث</option></select></div><div class="product-grid" id="productGrid"></div><button class="load-more" id="loadMore">تحميل المزيد</button></div></section>
+      <section class="section why-section" id="about"><div class="container"><div class="section-head centered"><div><span class="kicker">لماذا زمزم؟</span><h2>نعتني بالتفاصيل الصغيرة</h2><p>لأن تجربة عميلك تبدأ قبل أول قضمة.</p></div></div><div class="why-grid"><article><b>01</b><h3>خامة تليق بكيكك</h3><p>نختار خامات قوية وآمنة غذائياً تحافظ على الشكل والطعم.</p></article><article><b>02</b><h3>مقاسات لكل وصفة</h3><p>من الكب كيك الصغير حتى الكيكات متعددة الطوابق.</p></article><article><b>03</b><h3>نصل في وقتك</h3><p>تجهيز سريع وشحن موثوق لتبقى دائماً مستعداً لطلباتك.</p></article></div></div></section>
+      <section class="bulk-section"><div class="container bulk-grid"><div><span class="kicker">لأصحاب الأعمال</span><h2>تطلب بكميات كبيرة؟<br /><em>خلّينا نساعدك.</em></h2><p>أسعار خاصة، تجهيز منتظم وحلول تغليف مصممة لعلامتك التجارية.</p><a href="mailto:hello@sukkar.eg" class="btn btn-primary">اطلب تسعير الجملة ←</a></div><div class="bulk-stats"><strong>+120</strong><span>مخبزاً يثق بنا</span><strong>48h</strong><span>متوسط وقت التجهيز</span></div></div></section>
+    </main>
+
+    <footer class="site-footer" id="contact"><div class="container footer-grid"><div class="footer-brand">    <a class="logo" href="#home"><span class="logo-mark">Z</span><span>زمزم<small>لمستلزمات الحلويات</small></span></a><p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p><div class="socials"><a href="#" aria-label="Facebook">f</a></div></div><div><h4>تسوق</h4><a href="#shop">الأكثر طلباً</a><a href="#shop">ألواح الكيك</a><a href="#shop">علب الكيك</a><a href="#shop">العروض</a></div>    <div><h4>تواصل معنا</h4><p>القاهرة، مصر</p><p>٠١٠ ١٢٣ ٤٥٦٧</p><a href="admin.html" class="footer-admin-link">لوحة الإدارة</a></div></div><div class="container footer-bottom"><span>© 2026 زمزم. جميع الحقوق محفوظة.</span><span>صنع بحب في مصر</span></div></footer>    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="coupon"><input id="couponInput" placeholder="كود الخصم" /><button id="couponBtn">تطبيق</button></div><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><button class="btn btn-primary wide" id="checkoutBtn">إتمام الطلب <span>←</span></button></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
+    <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><div id="modalContent"></div><button class="modal-close" id="modalClose">×</button></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
+    <script src="src/js/script.js"></script>
+  </body>
+</html>
