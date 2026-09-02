@@ -37,8 +37,8 @@
         </form>
 
         <div class="demo-credentials">
-          <span>بيانات تجريبية:</span>
-          <strong>admin / zmzm123</strong>
+          <span>ملاحظة:</span>
+          <strong>يتم حفظ بيانات الدخول داخل Supabase فقط.</strong>
         </div>
       </div>
     </div>
@@ -146,6 +146,16 @@
                   مواصفات المنتج (JSON أو نص)
                   <textarea id="specs" name="specs" rows="4" placeholder='{"diameter":"20 سم","thickness":"3 مم","material":"كرتون"}'></textarea>
                 </label>
+
+                <div class="full-span image-upload-wrap">
+                  <label for="productImage">صورة المنتج</label>
+                  <input id="productImage" name="productImage" type="file" accept="image/*" />
+                  <input type="hidden" id="currentImage" value="" />
+                  <div class="image-preview-box empty" id="imagePreviewBox">
+                    <img id="productImagePreview" alt="معاينة صورة المنتج" />
+                    <span id="imagePreviewText">لا توجد صورة محددة</span>
+                  </div>
+                </div>
               </div>
 
               <div class="form-actions">
@@ -180,6 +190,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src=".local-supabase-config.js"></script>
     <script src="src/js/supabase-config.js"></script>
     <script src="src/js/admin.js"></script>
   </body>

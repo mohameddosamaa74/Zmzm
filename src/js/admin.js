@@ -1,6 +1,4 @@
 const ADMIN_AUTH_KEY = "zmzm-admin-auth";
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "zmzm123";
 const STORAGE_KEY = "zmzm-products";
 const supabaseConfig = window.ZMZAM_SUPABASE || { enabled: false };
 const supabaseClient = supabaseConfig.enabled && window.supabase ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) : null;
@@ -27,6 +25,10 @@ const loginForm = document.getElementById("loginForm");
 const authScreen = document.getElementById("authScreen");
 const adminShell = document.getElementById("adminShell");
 const logoutBtn = document.getElementById("logoutBtn");
+const productImageInput = document.getElementById("productImage");
+const productImagePreview = document.getElementById("productImagePreview");
+const imagePreviewText = document.getElementById("imagePreviewText");
+const currentImageInput = document.getElementById("currentImage");
 
 const categoryNames = {
   boards: "ألواح الكيك",
@@ -60,6 +62,7 @@ function normalizeProduct(row) {
     meta: row.meta || "",
     rating: Number(row.rating || 4.8),
     specs: row.specs || {},
+    image: row.image || row.image_url || row.photo || "",
     type: row.type || (row.category === "boards" ? "goldboard" : row.category === "cupcakes" ? "cup" : row.category === "packaging" ? "ribbon" : "box")
   };
 }
@@ -76,7 +79,8 @@ async function loadProductsFromSupabase() {
 
 async function saveProductsToSupabase() {
   if (!supabaseClient) return false;
-  const payload = products.map((product) => ({
+
+  const basePayload = products.map((product) => ({
     id: product.id,
     name: product.name,
     category: product.category,
@@ -89,9 +93,34 @@ async function saveProductsToSupabase() {
     type: product.type || "box"
   }));
 
-  const { error } = await supabaseClient.from("products").upsert(payload, { onConflict: "id" });
+  const payload = products.map((product) => ({
+    ...basePayload.find((row) => row.id === product.id),
+    ...(product.image ? { image: product.image } : {})
+  }));
+
+  const tryUpsert = async (rows) => {
+    const { error } = await supabaseClient.from("products").upsert(rows, { onConflict: "id" });
+    return error;
+  };
+
+  let error = await tryUpsert(payload);
+  if (error && /image/i.test(error.message || "")) {
+    console.warn("Supabase image column missing; retrying without image field.");
+    error = await tryUpsert(basePayload);
+  }
+
   if (error) {
-    console.warn("Supabase save failed:", error.message);
+    console.error("Supabase save failed:", error);
+    return false;
+  }
+  return true;
+}
+
+async function deleteProductFromSupabase(productId) {
+  if (!supabaseClient) return false;
+  const { error } = await supabaseClient.from("products").delete().eq("id", productId);
+  if (error) {
+    console.error("Supabase delete failed:", error);
     return false;
   }
   return true;
@@ -153,10 +182,67 @@ function renderTable() {
   renderStats();
 }
 
+function resetFilePreview() {
+  if (productImageInput) productImageInput.value = "";
+  if (currentImageInput) currentImageInput.value = "";
+  if (productImagePreview) {
+    productImagePreview.src = "";
+    productImagePreview.classList.add("hidden");
+  }
+  if (imagePreviewText) {
+    imagePreviewText.textContent = "لا توجد صورة محددة";
+  }
+}
+
+function setImagePreview(source) {
+  if (!productImagePreview || !imagePreviewText) return;
+  if (source) {
+    productImagePreview.src = source;
+    productImagePreview.classList.remove("hidden");
+    imagePreviewText.textContent = "تم تحديد الصورة";
+  } else {
+    productImagePreview.src = "";
+    productImagePreview.classList.add("hidden");
+    imagePreviewText.textContent = "لا توجد صورة محددة";
+  }
+}
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve("");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result || "");
+    reader.onerror = () => reject(new Error("فشل في قراءة الصورة"));
+    reader.readAsDataURL(file);
+  });
+}
+
+productImageInput.addEventListener("change", async (event) => {
+  const [file] = event.target.files || [];
+  if (!file) {
+    setImagePreview(currentImageInput?.value || "");
+    return;
+  }
+
+  try {
+    const dataUrl = await readImageFile(file);
+    currentImageInput.value = dataUrl;
+    setImagePreview(dataUrl);
+  } catch (error) {
+    showToast("تعذّر تحميل الصورة، حاول مرة أخرى");
+  }
+});
+
 function resetForm() {
   productForm.reset();
   document.getElementById("productId").value = "";
   document.getElementById("specs").value = "";
+  currentImageInput.value = "";
+  resetFilePreview();
   formTitle.textContent = "إضافة منتج";
   document.getElementById("saveProduct").textContent = "حفظ المنتج";
   document.getElementById("rating").value = "4.8";
@@ -173,11 +259,13 @@ function fillForm(product) {
   document.getElementById("meta").value = product.meta || "";
   const specsValue = product.specs ? (typeof product.specs === "string" ? product.specs : JSON.stringify(product.specs, null, 2)) : "";
   document.getElementById("specs").value = specsValue;
+  currentImageInput.value = product.image || "";
+  setImagePreview(product.image || "");
   formTitle.textContent = "تعديل المنتج";
   document.getElementById("saveProduct").textContent = "تحديث المنتج";
 }
 
-productTableBody.addEventListener("click", (event) => {
+productTableBody.addEventListener("click", async (event) => {
   const target = event.target.closest("button");
   if (!target) return;
 
@@ -191,8 +279,15 @@ productTableBody.addEventListener("click", (event) => {
   }
 
   if (action === "delete") {
-    products = products.filter((item) => item.id !== Number(id));
+    const productId = Number(id);
+    products = products.filter((item) => item.id !== productId);
     saveProducts();
+    if (supabaseClient) {
+      const deleted = await deleteProductFromSupabase(productId);
+      if (!deleted) {
+        showToast("تم حذف المنتج محلياً فقط — تحقق من إعدادات Supabase");
+      }
+    }
     renderTable();
     resetForm();
     showToast("تم حذف المنتج بنجاح");
@@ -214,6 +309,13 @@ productForm.addEventListener("submit", async (event) => {
     }
   }
 
+  const selectedFile = productImageInput?.files?.[0];
+  let imageValue = currentImageInput?.value || "";
+
+  if (selectedFile) {
+    imageValue = await readImageFile(selectedFile);
+  }
+
   const productData = {
     name: document.getElementById("name").value.trim(),
     category: document.getElementById("category").value,
@@ -223,6 +325,7 @@ productForm.addEventListener("submit", async (event) => {
     meta: document.getElementById("meta").value.trim(),
     rating: Number(document.getElementById("rating").value || 4.8),
     specs,
+    image: imageValue,
     type: "box"
   };
 
@@ -246,10 +349,13 @@ productForm.addEventListener("submit", async (event) => {
 
   saveProducts();
   if (supabaseClient) {
-    await saveProductsToSupabase();
-  }
-  renderTable();
-  resetForm();
+   const synced = await saveProductsToSupabase();
+   if (!synced) {
+     showToast("تم حفظ المنتج محلياً فقط — تحقق من إعدادات Supabase");
+   }
+ }
+ renderTable();
+ resetForm();
 });
 
 cancelEditBtn.addEventListener("click", () => {
@@ -260,7 +366,10 @@ resetDemoBtn.addEventListener("click", async () => {
   products = [...defaultProducts];
   saveProducts();
   if (supabaseClient) {
-    await saveProductsToSupabase();
+    const synced = await saveProductsToSupabase();
+    if (!synced) {
+      showToast("تمت استعادة البيانات محلياً فقط — تحقق من إعدادات Supabase");
+    }
   }
   renderTable();
   resetForm();
@@ -273,24 +382,19 @@ loginForm.addEventListener("submit", async (event) => {
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (supabaseClient) {
-    const { data, error } = await supabaseClient
-      .from("admin_credentials")
-      .select("*")
-      .eq("username", username)
-      .eq("password", password)
-      .maybeSingle();
-
-    if (!error && data) {
-      setLoggedIn(true);
-      updateAuthUI();
-      showToast("تم تسجيل الدخول بنجاح");
-      document.getElementById("loginForm").reset();
-      return;
-    }
+  if (!supabaseClient) {
+    showToast("يرجى تفعيل Supabase أولاً في ملف التكوين");
+    return;
   }
 
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+  const { data, error } = await supabaseClient
+    .from("admin_credentials")
+    .select("*")
+    .eq("username", username)
+    .eq("password", password)
+    .maybeSingle();
+
+  if (!error && data) {
     setLoggedIn(true);
     updateAuthUI();
     showToast("تم تسجيل الدخول بنجاح");

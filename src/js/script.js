@@ -1,4 +1,7 @@
 const STORAGE_KEY = "zmzm-products";
+const CART_STORAGE_KEY = "zmzm-cart";
+const supabaseConfig = window.ZMZAM_SUPABASE || { enabled: false };
+const supabaseClient = supabaseConfig.enabled && window.supabase ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) : null;
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
   { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8 },
@@ -11,7 +14,24 @@ const defaultProducts = [
   { id: 9, name: "علبة كيك طويلة 30 سم", category: "boxes", price: 130, tag: "جديد", type: "box", meta: "طويلة · 30×30×20 سم", rating: 4.7 },
   { id: 10, name: "مجموعة ملصقات سُكّر", category: "packaging", price: 25, tag: "", type: "ribbon", meta: "36 ملصقاً · دائري", rating: 4.6 }
 ];
-const products = (() => {
+
+function normalizeProduct(row) {
+  return {
+    id: Number(row.id ?? 0),
+    name: row.name || "",
+    category: row.category || "boxes",
+    price: Number(row.price || 0),
+    old: Number(row.old_price || row.old || 0),
+    tag: row.tag || "",
+    meta: row.meta || "",
+    rating: Number(row.rating || 4.8),
+    specs: row.specs || {},
+    image: row.image || row.image_url || row.photo || "",
+    type: row.type || (row.category === "boards" ? "goldboard" : row.category === "cupcakes" ? "cup" : row.category === "packaging" ? "ribbon" : "box")
+  };
+}
+
+let products = (() => {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
@@ -24,12 +44,62 @@ const products = (() => {
   return defaultProducts;
 })();
 
+async function loadProductsFromSupabase() {
+  if (!supabaseClient) return null;
+  const { data, error } = await supabaseClient.from("products").select("*").order("id", { ascending: true });
+  if (error) {
+    console.warn("Supabase load failed:", error.message);
+    return null;
+  }
+  return data.map(normalizeProduct);
+}
+
+async function syncProductsWithSupabase() {
+  if (!supabaseClient) return;
+  const remoteProducts = await loadProductsFromSupabase();
+  if (!remoteProducts || !remoteProducts.length) return;
+  products = remoteProducts;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  renderProducts();
+  renderCart();
+}
+
+window.addEventListener("storage", (event) => {
+  if (event.key !== STORAGE_KEY || !event.newValue) return;
+  try {
+    const incomingProducts = JSON.parse(event.newValue);
+    if (Array.isArray(incomingProducts)) {
+      products = incomingProducts;
+      renderProducts();
+      renderCart();
+    }
+  } catch (error) {
+    console.warn("Could not sync product change from storage.");
+  }
+});
+
+const getStoredCart = () => {
+  const saved = localStorage.getItem(CART_STORAGE_KEY);
+  if (!saved) return [];
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
 const state = { cart: [], filter: "all", search: "", sort: "popular", visible: 8 };
+localStorage.removeItem(CART_STORAGE_KEY);
 const $ = (selector) => document.querySelector(selector);
-const money = (value) => `${value.toLocaleString("ar-EG")} ج.م`;
+const money = (value) => `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 const categoryLabel = { boards: "ألواح الكيك", boxes: "علب الكيك", cupcakes: "كب كيك", packaging: "تغليف" };
+const persistCart = () => localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
 
 function productArt(product) {
+  if (product.image) {
+    return `<img src="${product.image}" alt="${product.name}" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
+  }
+
   if (product.type === "goldboard" || product.type === "silverboard") return `<div class="product-art ${product.type}"></div>`;
   if (product.type === "cup") return `<div class="product-art cup"><i></i><i></i><i></i></div>`;
   return `<div class="product-art ${product.type}"></div>`;
@@ -50,23 +120,26 @@ function filteredProducts() {
 function renderProducts() {
   const result = filteredProducts();
   const visible = result.slice(0, state.visible);
-  $("#resultsCount").textContent = `عرض ${visible.length} من ${result.length} منتجات`;
+  const itemLabel = result.length === 1 ? "منتج" : "منتجات";
+  $("#resultsCount").textContent = `عرض ${visible.length} من ${result.length} ${itemLabel}`;
   $("#productGrid").innerHTML = visible.length ? visible.map((product) => `
     <article class="product-card" data-product-id="${product.id}">
       <div class="product-image ${product.category}">${product.tag ? `<span class="product-badge">${product.tag}</span>` : ""}<button class="wish" aria-label="إضافة إلى المفضلة">♡</button><button class="quick-view" data-id="${product.id}">عرض سريع</button>${productArt(product)}</div>
       <div class="product-info"><h3>${product.name}</h3><div class="product-meta">★ ${product.rating} &nbsp; · &nbsp; ${product.meta}</div><div class="product-row"><span class="price">${money(product.price)} ${product.old ? `<del class="old-price">${money(product.old)}</del>` : ""}</span><button class="add-to-cart" data-id="${product.id}" aria-label="إضافة ${product.name} للسلة">＋</button></div></div>
     </article>`).join("") : `<div class="empty-cart" style="grid-column:1/-1">لم نجد منتجات مطابقة لبحثك. جرّب كلمة أخرى.</div>`;
   $("#loadMore").style.display = state.visible < result.length ? "block" : "none";
+  $("#loadMore").textContent = state.visible < result.length ? "عرض المزيد" : "لا توجد منتجات إضافية";
 }
 
 function renderCart() {
+  persistCart();
   const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = state.cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
   $("#cartCount").textContent = count;
   $("#drawerCount").textContent = `${count} منتجات`;
   $("#cartItems").innerHTML = state.cart.length ? state.cart.map(({ product, quantity }) => `
-    <div class="cart-item"><div class="cart-thumb">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
+  <div class="cart-item"><div class="cart-thumb ${product.image ? "has-image" : ""}">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
   $("#subtotal").textContent = money(subtotal);
   $("#shipping").textContent = shipping ? money(shipping) : (subtotal ? "مجاني" : "—");
   $("#total").textContent = money(subtotal + shipping);
@@ -82,6 +155,7 @@ function addToCart(id) {
   const product = products.find((item) => item.id === id);
   const existing = state.cart.find((item) => item.product.id === id);
   if (existing) existing.quantity += 1; else state.cart.push({ product, quantity: 1 });
+  persistCart();
   renderCart(); toast("تمت إضافة المنتج إلى السلة"); openCart();
 }
 
@@ -106,7 +180,8 @@ $("#cartItems").addEventListener("click", (event) => {
   if (button.dataset.action === "increase") item.quantity += 1;
   if (button.dataset.action === "decrease") item.quantity -= 1;
   if (button.dataset.action === "remove" || item.quantity < 1) state.cart = state.cart.filter((entry) => entry !== item);
-  renderCart();
+ persistCart();
+ renderCart();
 });
 $("#filterBar").addEventListener("click", (event) => {
   const button = event.target.closest("button"); if (!button) return;
@@ -119,7 +194,14 @@ document.querySelectorAll("[data-filter-link]").forEach((link) => link.addEventL
 $("#sortSelect").addEventListener("change", (event) => { state.sort = event.target.value; renderProducts(); });
 $("#loadMore").addEventListener("click", () => { state.visible += 4; renderProducts(); });
 $("#cartToggle").addEventListener("click", openCart); $("#closeCart").addEventListener("click", closeCart); $("#drawerOverlay").addEventListener("click", closeCart);
-$("#checkoutBtn").addEventListener("click", () => state.cart.length ? toast("سيتم فتح صفحة الدفع قريباً — شكراً لثقتك!") : toast("أضف منتجاً إلى السلة أولاً"));
+$("#checkoutBtn").addEventListener("click", () => {
+  if (!state.cart.length) {
+    toast("أضف منتجاً إلى السلة أولاً");
+    return;
+  }
+  persistCart();
+  window.location.href = "checkout.html";
+});
 $("#couponBtn").addEventListener("click", () => $("#couponInput").value.trim() ? toast("تم تطبيق كود الخصم بنجاح") : toast("اكتب كود الخصم أولاً"));
 $("#searchToggle").addEventListener("click", () => { $("#searchPanel").classList.toggle("open"); $("#searchInput").focus(); });
 $("#closeSearch").addEventListener("click", () => $("#searchPanel").classList.remove("open"));
@@ -135,4 +217,10 @@ const newsletterForm = $("#newsletterForm"); if (newsletterForm) newsletterForm.
 const langToggle = $("#langToggle"); if (langToggle) langToggle.addEventListener("click", () => toast("النسخة الإنجليزية قيد الإعداد"));
 document.querySelectorAll("[data-scroll]").forEach((button) => button.addEventListener("click", () => document.querySelector(button.dataset.scroll)?.scrollIntoView()));
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCart(); });
-renderProducts(); renderCart();
+
+if (supabaseClient) {
+  syncProductsWithSupabase();
+} else {
+  renderProducts();
+}
+renderCart();

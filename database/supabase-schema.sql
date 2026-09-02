@@ -1,15 +1,11 @@
 -- 1) Admin credentials table
+-- Store admin login in Supabase only. Do not keep real credentials in the repo.
 create table if not exists public.admin_credentials (
   username text primary key,
   password text not null,
   full_name text,
   created_at timestamptz default now()
 );
-
--- Example demo admin user
-insert into public.admin_credentials (username, password, full_name)
-values ('admin', 'zmzm123', 'Zamzam Admin')
-on conflict (username) do nothing;
 
 -- 2) Product catalog table
 create table if not exists public.products (
@@ -22,16 +18,87 @@ create table if not exists public.products (
   meta text,
   rating numeric default 4.8,
   specs jsonb default '{}',
+  image text,
   type text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
--- optional: enable row level security (RLS) if you want stricter access
--- alter table public.products enable row level security;
--- alter table public.admin_credentials enable row level security;
+-- Create admin user after you log into Supabase Dashboard.
+-- Replace the values below with your own, then run the SQL.
+-- Example:
+-- insert into public.admin_credentials (username, password, full_name)
+-- values ('your_admin_username', 'your_strong_password', 'Zamzam Admin');
+
+-- Seed default products for the storefront
+insert into public.products (id, name, category, price, old_price, tag, meta, rating, specs, image, type)
+values
+  (1, 'لوح كيك ذهبي دائري 20 سم', 'boards', 45, 55, 'الأكثر مبيعاً', 'ذهبي · 20 سم · 3 مم', 4.9, '{"diameter":"20 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
+  (2, 'علبة كيك بيضاء 20×20×20', 'boxes', 85, null, 'جديد', 'كرتون غذائي · 20 سم', 4.8, '{"width":"20 سم","length":"20 سم","height":"20 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
+  (3, 'لوح كيك فضي دائري 25 سم', 'boards', 55, null, '', 'فضي · 25 سم · 3 مم', 4.7, '{"diameter":"25 سم","thickness":"3 مم","shape":"دائري","color":"فضي","quantity":"1 قطعة"}', null, 'silverboard'),
+  (4, 'علبة كب كيك — 6 قطع', 'cupcakes', 62, 75, 'عرض', '6 قطع · نافذة شفافة', 4.9, '{"pieces":"6 قطع","material":"كرتون","window":"شفاف","color":"أبيض","quantity":"1 علبة"}', null, 'cup'),
+  (5, 'علبة كيك بيضاء 25×25×25', 'boxes', 105, null, '', 'كرتون غذائي · 25 سم', 4.8, '{"width":"25 سم","length":"25 سم","height":"25 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
+  (6, 'شريط ساتان أزرق — 10 متر', 'packaging', 38, null, 'جديد', 'أزرق ملكي · 10 متر', 4.6, '{"length":"10 متر","material":"ساتان","color":"أزرق","quantity":"1 لفافة"}', null, 'ribbon'),
+  (7, 'علبة كب كيك — 12 قطعة', 'cupcakes', 88, null, '', '12 قطعة · نافذة شفافة', 4.8, '{"pieces":"12 قطعة","material":"كرتون","window":"شفاف","color":"أبيض","quantity":"1 علبة"}', null, 'cup'),
+  (8, 'لوح كيك ذهبي دائري 30 سم', 'boards', 75, null, '', 'ذهبي · 30 سم · 3 مم', 4.9, '{"diameter":"30 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
+  (9, 'علبة كيك طويلة 30 سم', 'boxes', 130, null, 'جديد', 'طويلة · 30×30×20 سم', 4.7, '{"width":"30 سم","length":"30 سم","height":"20 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
+  (10, 'مجموعة ملصقات سُكّر', 'packaging', 25, null, '', '36 ملصقاً · دائري', 4.6, '{"quantity":"36 ملصقاً","type":"ملصقات","color":"متعدد","material":"ورق"}', null, 'ribbon')
+on conflict (id) do update
+set name = excluded.name,
+    category = excluded.category,
+    price = excluded.price,
+    old_price = excluded.old_price,
+    tag = excluded.tag,
+    meta = excluded.meta,
+    rating = excluded.rating,
+    specs = excluded.specs,
+    image = excluded.image,
+    type = excluded.type,
+    updated_at = now();
+
+-- For a simple local/demo setup, enable RLS and allow public read/write access.
+-- For production, use Supabase Auth instead of plain username/password storage.
+alter table public.admin_credentials enable row level security;
+
+drop policy if exists "admin_login_select" on public.admin_credentials;
+create policy "admin_login_select"
+on public.admin_credentials
+for select
+to public
+using (true);
+
+alter table public.products enable row level security;
+
+drop policy if exists "products_public_select" on public.products;
+create policy "products_public_select"
+on public.products
+for select
+to public
+using (true);
+
+drop policy if exists "products_public_write" on public.products;
+create policy "products_public_write"
+on public.products
+for insert
+to public
+with check (true);
+
+drop policy if exists "products_public_update" on public.products;
+create policy "products_public_update"
+on public.products
+for update
+to public
+using (true)
+with check (true);
+
+drop policy if exists "products_public_delete" on public.products;
+create policy "products_public_delete"
+on public.products
+for delete
+to public
+using (true);
 
 -- optional: view for product specs (for admin dashboard)
 create or replace view public.product_specs_view as
-select p.id, p.name, p.category, p.price, p.old_price, p.tag, p.meta, p.rating, p.specs
+select p.id, p.name, p.category, p.price, p.old_price, p.tag, p.meta, p.rating, p.specs, p.image
 from public.products p;

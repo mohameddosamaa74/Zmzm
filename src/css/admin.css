@@ -316,6 +316,39 @@ input:focus, select:focus {
   gap: 12px;
 }
 
+.image-upload-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.image-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: #f7fafe;
+}
+
+.image-preview-box img {
+  width: 82px;
+  height: 82px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #edf4ff;
+  display: none;
+}
+
+.image-preview-box img:not(.hidden) {
+  display: block;
+}
+
+.image-preview-box.empty {
+  color: var(--muted);
+}
+
 .table-wrap {
   overflow: auto;
 }

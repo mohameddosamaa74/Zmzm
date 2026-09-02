@@ -1,0 +1,259 @@
+:root {
+  --blue: #1769d4;
+  --blue-strong: #0f4fba;
+  --blue-soft: #edf3ff;
+  --navy: #112b4d;
+  --muted: #7b8ca3;
+  --line: #e7edf5;
+  --bg: #f6f9ff;
+  --white: #ffffff;
+  --red: #e85b63;
+  --success: #1e9d62;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  font-family: "Cairo", sans-serif;
+  background: #f4f7fb;
+  color: var(--navy);
+  direction: rtl;
+}
+
+a { color: inherit; text-decoration: none; }
+input, textarea, button { font: inherit; }
+button { cursor: pointer; }
+
+.checkout-shell {
+  max-width: 1200px;
+  margin: 32px auto;
+  padding: 0 20px 40px;
+}
+
+.checkout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.checkout-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+}
+
+.checkout-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.checkout-panel,
+.summary-panel {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 16px 30px rgba(17, 43, 77, 0.05);
+}
+
+.panel-head {
+  padding: 24px 26px 0;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+}
+
+.checkout-form {
+  padding: 18px 26px 26px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 18px 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+label.full {
+  grid-column: 1 / -1;
+}
+
+input,
+textarea {
+  background: #f9fbff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-height: 52px;
+  padding: 14px 16px;
+  font-size: 0.98rem;
+  color: var(--navy);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+textarea {
+  min-height: 94px;
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(23, 105, 212, 0.5);
+  box-shadow: 0 0 0 3px rgba(23, 105, 212, 0.12);
+}
+
+.submit-btn {
+  width: 100%;
+  margin-top: 24px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-strong));
+  color: var(--white);
+  min-height: 62px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 12px 25px rgba(23, 105, 212, 0.28);
+}
+
+.summary-panel {
+  padding-bottom: 22px;
+}
+
+.checkout-items {
+  padding: 18px 26px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.checkout-item {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.checkout-thumb {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 800;
+  font-size: 1.5rem;
+  overflow: hidden;
+}
+
+.checkout-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.checkout-thumb.has-image {
+  background: #fff;
+}
+
+.checkout-item h3 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.checkout-item .qty {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.checkout-item strong {
+  font-size: 0.95rem;
+  color: var(--navy);
+}
+
+.totals {
+  padding: 8px 26px 0;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.row strong {
+  color: var(--navy);
+}
+
+.row.total {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--navy);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.row.total strong {
+  color: var(--blue);
+  font-size: 1.2rem;
+}
+
+@media (max-width: 840px) {
+  .checkout-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-shell {
+    margin-top: 16px;
+    padding-inline: 12px;
+  }
+
+  .checkout-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .submit-btn {
+    min-height: 58px;
+  }
+}
