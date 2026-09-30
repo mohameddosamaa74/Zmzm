@@ -31,18 +31,7 @@ function normalizeProduct(row) {
   };
 }
 
-let products = (() => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (error) {
-      console.warn("Failed to parse saved products, falling back to default data.");
-    }
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProducts));
-  return defaultProducts;
-})();
+let products = [];
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) return null;
@@ -55,11 +44,20 @@ async function loadProductsFromSupabase() {
 }
 
 async function syncProductsWithSupabase() {
-  if (!supabaseClient) return;
+  if (!supabaseClient) {
+    products = defaultProducts;
+    renderProducts();
+    renderCart();
+    return;
+  }
   const remoteProducts = await loadProductsFromSupabase();
-  if (!remoteProducts || !remoteProducts.length) return;
-  products = remoteProducts;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  if (remoteProducts && remoteProducts.length > 0) {
+    products = remoteProducts;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  } else {
+    console.warn("No products found in Supabase, using defaults.");
+    products = defaultProducts;
+  }
   renderProducts();
   renderCart();
 }
@@ -98,7 +96,6 @@ function productArt(product) {
   if (product.image) {
     return `<img src="${product.image}" alt="${product.name}" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
   }
-
   if (product.type === "goldboard" || product.type === "silverboard") return `<div class="product-art ${product.type}"></div>`;
   if (product.type === "cup") return `<div class="product-art cup"><i></i><i></i><i></i></div>`;
   return `<div class="product-art ${product.type}"></div>`;
@@ -210,7 +207,7 @@ $("#filterBar").addEventListener("click", (event) => {
 document.querySelectorAll("[data-filter-link]").forEach((link) => link.addEventListener("click", () => {
   state.filter = link.dataset.filterLink; document.querySelector(`#filterBar button[data-filter="${state.filter}"]`)?.click();
 }));
-$("#sortSelect").addEventListener("change", (event) => { state.sort = event.target.value; renderProducts(); });
+$("#sortSelect").addEventListener("change", (event) => { state.sort = event.target.value, renderProducts(); });
 $("#loadMore").addEventListener("click", () => { state.visible += 4; renderProducts(); });
 $("#cartToggle").addEventListener("click", openCart); $("#closeCart").addEventListener("click", closeCart); $("#drawerOverlay").addEventListener("click", closeCart);
 $("#checkoutBtn").addEventListener("click", () => {
@@ -233,7 +230,7 @@ navLinks.forEach((link) => {
   });
 });
 const newsletterForm = $("#newsletterForm"); if (newsletterForm) newsletterForm.addEventListener("submit", (event) => { event.preventDefault(); event.target.reset(); toast("تم اشتراكك! تحقق من بريدك للعروض القادمة."); });
-const langToggle = $("#langToggle"); if (langToggle) langToggle.addEventListener("click", () => toast("النسخة الإنجليزية قيد الإعداد"));
+const langToggle = $("#langToggle"); if (langToggle)addEventListener("click", () => toast("النسخة الإنجليزية قيد الإعداد"));
 document.querySelectorAll("[data-scroll]").forEach((button) => button.addEventListener("click", () => document.querySelector(button.dataset.scroll)?.scrollIntoView()));
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCart(); });
 
