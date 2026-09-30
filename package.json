@@ -1,0 +1,30 @@
+{
+  "name": "zmzm",
+  "version": "1.0.0",
+  "description": "",
+  "main": ".local-supabase-config.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohameddosamaa74/Zmzm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mohameddosamaa74/Zmzm/issues"
+  },
+  "homepage": "https://github.com/mohameddosamaa74/Zmzm#readme",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "gh-pages": "^6.3.0",
+    "vite": "^8.3.1"
+  }
+}
