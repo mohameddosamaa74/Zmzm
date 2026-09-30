@@ -31,7 +31,8 @@ function normalizeProduct(row) {
   };
 }
 
-let products = [];
+// Start with default products so the page is never empty
+let products = [...defaultProducts];
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) return null;
@@ -45,7 +46,6 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   if (!supabaseClient) {
-    products = defaultProducts;
     renderProducts();
     renderCart();
     return;
@@ -55,8 +55,7 @@ async function syncProductsWithSupabase() {
     products = remoteProducts;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   } else {
-    console.warn("No products found in Supabase, using defaults.");
-    products = defaultProducts;
+    console.warn("No products found in Supabase, keeping defaults.");
   }
   renderProducts();
   renderCart();
