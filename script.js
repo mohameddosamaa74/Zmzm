@@ -1,14 +1,15 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Update: Support both Local Config and Vercel Environment Variables
+// 1. Configuration - Prioritize local window object, then environment variables
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
   url: import.meta.env?.VITE_SUPABASE_URL || "", 
   anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
-  enabled: !!(import.meta.env?.VITE_SUPABASE_URL) 
 };
 
-const supabaseClient = (supabaseConfig.enabled || (supabaseConfig.url && supabaseConfig.anonKey)) 
+const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
+
+const supabaseClient = isSupabaseConfigured 
   ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) 
   : null;
 
@@ -45,17 +46,22 @@ let products = [];
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) return null;
-  const { data, error } = await supabaseClient.from("products").select("*").order("id", { ascending: true });
-  if (error) {
-    console.warn("Supabase load failed:", error.message);
+  try {
+    const { data, error } = await supabaseClient.from("products").select("*").order("id", { ascending: true });
+    if (error) {
+      console.warn("Supabase load failed:", error.message);
+      return null;
+    }
+    return data.map(normalizeProduct);
+  } catch (e) {
+    console.error("Supabase critical error:", e);
     return null;
   }
-  return data.map(normalizeProduct);
 }
 
 async function syncProductsWithSupabase() {
   if (!supabaseClient) {
-    console.warn("Supabase client not configured. Falling back to defaults.");
+    console.warn("Supabase client not configured. Using defaults.");
     products = defaultProducts;
     renderProducts();
     renderCart();
@@ -68,7 +74,7 @@ async function syncProductsWithSupabase() {
     products = remoteProducts;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   } else {
-    console.warn("No products found in Supabase table, using defaults.");
+    console.warn("No products in Supabase. Using defaults.");
     products = defaultProducts;
   }
   renderProducts();
@@ -85,7 +91,7 @@ window.addEventListener("storage", (event) => {
       renderCart();
     }
   } catch (error) {
-    console.warn("Could not sync product change from storage.");
+    console.warn("Storage sync error.");
   }
 });
 
@@ -127,17 +133,27 @@ function filteredProducts() {
 }
 
 function renderProducts() {
+  const grid = $("#productGrid");
+  if (!grid) return;
+  
   const result = filteredProducts();
   const visible = result.slice(0, state.visible);
   const itemLabel = result.length === 1 ? "منتج" : "منتجات";
-  $("#resultsCount").textContent = `عرض ${visible.length} من ${result.length} ${itemLabel}`;
-  $("#productGrid").innerHTML = visible.length ? visible.map((product) => `
+  
+  const countEl = $("#resultsCount");
+  if (countEl) countEl.textContent = `عرض ${visible.length} من ${result.length} ${itemLabel}`;
+  
+  grid.innerHTML = visible.length ? visible.map((product) => `
     <article class="product-card" data-product-id="${product.id}">
       <div class="product-image ${product.category}">${product.tag ? `<span class="product-badge">${product.tag}</span>` : ""}<button class="wish" aria-label="إضافة إلى المفضلة">♡</button><button class="quick-view" data-id="${product.id}">عرض سريع</button>${productArt(product)}</div>
       <div class="product-info"><h3>${product.name}</h3><div class="product-meta">★ ${product.rating} &nbsp; · &nbsp; ${product.meta}</div><div class="product-row"><span class="price">${money(product.price)} ${product.old ? `<del class="old-price">${money(product.old)}</del>` : ""}</span><button class="add-to-cart" data-id="${product.id}" aria-label="إضافة ${product.name} للسلة">＋</button></div></div>
     </article>`).join("") : `<div class="empty-cart" style="grid-column:1/-1">لم نجد منتجات مطابقة لبحثك. جرّب كلمة أخرى.</div>`;
-  $("#loadMore").style.display = state.visible < result.length ? "block" : "none";
-  $("#loadMore").textContent = state.visible < result.length ? "عرض المزيد" : "لا توجد منتجات إضافية";
+  
+  const loadMore = $("#loadMore");
+  if (loadMore) {
+    loadMore.style.display = state.visible < result.length ? "block" : "none";
+    loadMore.textContent = state.visible < result.length ? "عرض المزيد" : "لا توجد منتجات إضافية";
+  }
 }
 
 function renderCart() {
@@ -145,21 +161,29 @@ function renderCart() {
   const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = state.cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
-  $("#cartCount").textContent = count;
-  $("#drawerCount").textContent = `${count} منتجات`;
-  $("#cartItems").innerHTML = state.cart.length ? state.cart.map(({ product, quantity }) => `
-  <div class="cart-item"><div class="cart-thumb ${product.image ? "has-image" : ""}">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
-  $("#subtotal").textContent = money(subtotal);
-  $("#shipping").textContent = shipping ? money(shipping) : (subtotal ? "مجاني" : "—");
-  $("#total").textContent = money(subtotal + shipping);
+  
+  const cartCount = $("#cartCount"); if (cartCount) cartCount.textContent = count;
+  const drawerCount = $("#drawerCount"); if (drawerCount) drawerCount.textContent = `${count} منتجات`;
+  
+  const cartItems = $("#cartItems");
+  if (cartItems) {
+    cartItems.innerHTML = state.cart.length ? state.cart.map(({ product, quantity }) => `
+    <div class="cart-item"><div class="cart-thumb ${product.image ? "has-image" : ""}">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
+  }
+  
+  const subtotalEl = $("#subtotal"); if (subtotalEl) subtotalEl.textContent = money(subtotal);
+  const shippingEl = $("#shipping"); if (shippingEl) shippingEl.textContent = shipping ? money(shipping) : (subtotal ? "مجاني" : "—");
+  const totalEl = $("#total"); if (totalEl) totalEl.textContent = money(subtotal + shipping);
 }
 
 function toast(message) {
-  const el = $("#toast"); el.textContent = message; el.classList.add("show");
+  const el = $("#toast"); if (!el) return;
+  el.textContent = message; el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 2300);
 }
-function openCart() { $("#cartDrawer").classList.add("open"); $("#drawerOverlay").classList.add("visible"); }
-function closeCart() { $("#cartDrawer").classList.remove("open"); $("#drawerOverlay").classList.remove("visible"); }
+function openCart() { $("#cartDrawer")?.classList.add("open"); $("#drawerOverlay")?.classList.add("visible"); }
+function closeCart() { $("#cartDrawer")?.classList.remove("open"); $("#drawerOverlay")?.classList.remove("visible"); }
+
 function addToCart(id) {
   const product = products.find((item) => item.id === id);
   if (!product) return;
@@ -175,7 +199,7 @@ function addToCart(id) {
   openCart();
 }
 
-$("#productGrid").addEventListener("click", (event) => {
+$("#productGrid")?.addEventListener("click", (event) => {
   const button = event.target.closest(".add-to-cart");
   if (button) {
     const id = Number(button.dataset.id);
@@ -185,14 +209,25 @@ $("#productGrid").addEventListener("click", (event) => {
   const quickView = event.target.closest(".quick-view");
   if (quickView) {
     const product = products.find((item) => item.id === Number(quickView.dataset.id));
-    $("#modalContent").innerHTML = `<div class="modal-product"><div class="product-image ${product.category}">${productArt(product)}</div><div><span class="kicker">${categoryLabel[product.category]}</span><h2>${product.name}</h2><div class="product-meta">★ ${product.rating} &nbsp; · &nbsp; ${product.meta}</div><p>حل أنيق وعملي يحافظ على منتجك ويمنحه مظهراً احترافياً من لحظة التسليم وحتى أول قضمة.</p><div class="price">${money(product.price)}</div><button class="btn btn-primary wide modal-add" data-id="${product.id}">أضف للسلة <span>←</span></button></div></div>`;
-    $("#quickModal").classList.add("open"); $("#modalBackdrop").classList.add("visible");
+    if (!product) return;
+    $("#modalContent").innerHTML = `<div class="modal-product"><div class="product-image ${product.category}">${productArt(product)}</div><div><span class="kicker">${categoryLabel[product.category] || "منتج"}</span><h2>${product.name}</h2><div class="product-meta">★ ${product.rating} &nbsp; · &nbsp; ${product.meta}</div><p>حل أنيق وعملي يحافظ على منتجك ويمنحه مظهراً احترافياً من لحظة التسليم وحتى أول قضمة.</p><div class="price">${money(product.price)}</div><button class="btn btn-primary wide modal-add" data-id="${product.id}">أضف للسلة <span>←</span></button></div></div>`;
+    $("#quickModal")?.classList.add("open"); $("#modalBackdrop")?.classList.add("visible");
   }
 });
-$("#modalContent").addEventListener("click", (event) => { const button = event.target.closest(".modal-add"); if (button) { addToCart(Number(button.dataset.id)); $("#quickModal").classList.remove("open"); $("#modalBackdrop").classList.remove("visible"); } });
-function closeModal() { $("#quickModal").classList.remove("open"); $("#modalBackdrop").classList.remove("visible"); }
-$("#modalClose").addEventListener("click", closeModal); $("#modalBackdrop").addEventListener("click", closeModal);
-$("#cartItems").addEventListener("click", (event) => {
+
+$("#modalContent")?.addEventListener("click", (event) => {
+  const button = event.target.closest(".modal-add");
+  if (button) {
+    addToCart(Number(button.dataset.id));
+    $("#quickModal")?.classList.remove("open"); $("#modalBackdrop")?.classList.remove("visible");
+  }
+});
+
+function closeModal() { $("#quickModal")?.classList.remove("open"); $("#modalBackdrop")?.classList.remove("visible"); }
+$("#modalClose")?.addEventListener("click", closeModal);
+$("#modalBackdrop")?.addEventListener("click", closeModal);
+
+$("#cartItems")?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]"); if (!button) return;
   const id = Number(button.dataset.id);
   const item = state.cart.find((entry) => entry.product.id === id);
@@ -212,18 +247,25 @@ $("#cartItems").addEventListener("click", (event) => {
   persistCart();
   renderCart();
 });
-$("#filterBar").addEventListener("click", (event) => {
+
+$("#filterBar")?.addEventListener("click", (event) => {
   const button = event.target.closest("button"); if (!button) return;
   state.filter = button.dataset.filter; state.visible = 8;
   document.querySelectorAll("#filterBar button").forEach((item) => item.classList.toggle("active", item === button)); renderProducts();
-} );
+});
+
 document.querySelectorAll("[data-filter-link]").forEach((link) => link.addEventListener("click", () => {
-  state.filter = link.dataset.filterLink; document.querySelector(`#filterBar button[data-filter="${state.filter}"]`)?.click();
+  state.filter = link.dataset.filterLink;
+  const filterBtn = document.querySelector(`#filterBar button[data-filter="${state.filter}"]`);
+  if (filterBtn) filterBtn.click();
 }));
-$("#sortSelect").addEventListener("change", (event) => { state.sort = event.target.value, renderProducts(); });
-$("#loadMore").addEventListener("click", () => { state.visible += 4; renderProducts(); });
-$("#cartToggle").addEventListener("click", openCart); $("#closeCloseCart").addEventListener("click", closeCart); $("#drawerOverlay").addEventListener("click", closeCart);
-$("#checkoutBtn").addEventListener("click", () => {
+
+$("#sortSelect")?.addEventListener("change", (event) => { state.sort = event.target.value; renderProducts(); });
+$("#loadMore")?.addEventListener("click", () => { state.visible += 4; renderProducts(); });
+$("#cartToggle")?.addEventListener("click", openCart);
+$("#closeCloseCart")?.addEventListener("click", closeCart);
+$("#drawerOverlay")?.addEventListener("click", closeCart);
+$("#checkoutBtn")?.addEventListener("click", () => {
   if (!state.cart.length) {
     toast("أضف منتجاً إلى السلة أولاً");
     return;
@@ -231,30 +273,51 @@ $("#checkoutBtn").addEventListener("click", () => {
   persistCart();
   window.location.href = "checkout.html";
 });
-$("#couponBtn").addEventListener("click", () => $("#couponInput").value.trim() ? toast("تم تطبيق كود الخصم بنجاح") : toast("اكتب كود الخصم أولاً"));
-$("#searchToggle").addEventListener("click", () => { $("#searchPanel").classList.toggle("open"); $("#searchInput").focus(); });
-$("#closeSearch").addEventListener("click", () => $("#searchPanel").classList.remove("open"));
-$("#searchInput").addEventListener("input", (event) => { state.search = event.target.value; state.visible = 8; renderProducts(); });
-$("#menuToggle").addEventListener("click", () => $("#mainNav").classList.toggle("open"));
+$("#couponBtn")?.addEventListener("click", () => $("#couponInput")?.value.trim() ? toast("تم تطبيق كود الخصم بنجاح") : toast("اكتب كود الخصم أولاً"));
+$("#searchToggle")?.addEventListener("click", () => { $("#searchPanel")?.classList.toggle("open"); $("#searchInput")?.focus(); });
+$("#closeSearch")?.addEventListener("click", () => $("#searchPanel")?.classList.remove("open"));
+$("#searchInput")?.addEventListener("input", (event) => { state.search = event.target.value; state.visible = 8; renderProducts(); });
+$("#menuToggle")?.addEventListener("click", () => $("#mainNav")?.classList.toggle("open"));
+
 const navLinks = document.querySelectorAll(".main-nav a");
 navLinks.forEach((link) => {
   link.addEventListener("click", () => {
     navLinks.forEach((item) => item.classList.toggle("active", item === link));
   });
 });
-const newsletterForm = $("#newsletterForm"); if (newsletterForm) newsletterForm.addEventListener("submit", (event) => { event.preventDefault(); event.target.reset(); toast("تم اشتراكك! تحقق من بريدك للعروض القادمة."); });
-const langToggle = $("#langToggle"); if (langToggle)addEventListener("click", () => toast("النسخة الإنجليزية قيد الإعداد"));
-document.querySelectorAll("[data-scroll]").forEach((button) => button.addEventListener("click", () => document.querySelector(button.dataset.scroll)?.scrollIntoView()));
+
+const newsletterForm = $("#newsletterForm");
+if (newsletterForm) {
+  newsletterForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    event.target.reset();
+    toast("تم اشتراكك! تحقق من بريدك للعروض القادمة.");
+  });
+}
+
+const langToggle = $("#langToggle");
+if (langToggle) {
+  langToggle.addEventListener("click", () => toast("النسخة الإنجليزية قيد الإعداد"));
+}
+
+document.querySelectorAll("[data-scroll]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = document.querySelector(button.dataset.scroll);
+    if (target) target.scrollIntoView();
+  });
+});
+
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCart(); });
 
-// Initialize state from storage
+// Initialize
 state.cart = getStoredCart();
 
-if (supabaseClient) {
-  syncProductsWithSupabase();
-} else {
-  // Only use defaults if Supabase is not not configured at all
-  products = defaultProducts;
-  renderProducts();
-}
-renderCart();
+(async () => {
+  if (supabaseClient) {
+    await syncProductsWithSupabase();
+  } else {
+    products = defaultProducts;
+    renderProducts();
+    renderCart();
+  }
+})();
