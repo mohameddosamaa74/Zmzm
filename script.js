@@ -1,9 +1,17 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
-const supabaseConfig = window.ZMZAM_SUPABASE || { enabled: false };
-const supabaseClient = supabaseConfig.enabled && window.supabase ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) : null;
 
-// We keep defaults ONLY as a fallback if Supabase is completely empty or offline
+// Update: Support both Local Config and Vercel Environment Variables
+const supabaseConfig = window.ZMZAM_SUPABASE || { 
+  url: import.meta.env?.VITE_SUPABASE_URL || "", 
+  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
+  enabled: !!(import.meta.env?.VITE_SUPABASE_URL) 
+};
+
+const supabaseClient = (supabaseConfig.enabled || (supabaseConfig.url && supabaseConfig.anonKey)) 
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) 
+  : null;
+
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
   { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
@@ -33,7 +41,6 @@ function normalizeProduct(row) {
   };
 }
 
-// IMPORTANT: Initialize as EMPTY. Do NOT load defaultProducts here.
 let products = [];
 
 async function loadProductsFromSupabase() {
@@ -58,11 +65,9 @@ async function syncProductsWithSupabase() {
   const remoteProducts = await loadProductsFromSupabase();
   
   if (remoteProducts && remoteProducts.length > 0) {
-    // If we found items in Supabase, ONLY use those. Completely ignore defaults.
     products = remoteProducts;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   } else {
-    // Only use defaults if Supabase is literally empty or errored
     console.warn("No products found in Supabase table, using defaults.");
     products = defaultProducts;
   }
@@ -211,13 +216,13 @@ $("#filterBar").addEventListener("click", (event) => {
   const button = event.target.closest("button"); if (!button) return;
   state.filter = button.dataset.filter; state.visible = 8;
   document.querySelectorAll("#filterBar button").forEach((item) => item.classList.toggle("active", item === button)); renderProducts();
-});
+} );
 document.querySelectorAll("[data-filter-link]").forEach((link) => link.addEventListener("click", () => {
   state.filter = link.dataset.filterLink; document.querySelector(`#filterBar button[data-filter="${state.filter}"]`)?.click();
 }));
 $("#sortSelect").addEventListener("change", (event) => { state.sort = event.target.value, renderProducts(); });
 $("#loadMore").addEventListener("click", () => { state.visible += 4; renderProducts(); });
-$("#cartToggle").addEventListener("click", openCart); $("#closeCart").addEventListener("click", closeCart); $("#drawerOverlay").addEventListener("click", closeCart);
+$("#cartToggle").addEventListener("click", openCart); $("#closeCloseCart").addEventListener("click", closeCart); $("#drawerOverlay").addEventListener("click", closeCart);
 $("#checkoutBtn").addEventListener("click", () => {
   if (!state.cart.length) {
     toast("أضف منتجاً إلى السلة أولاً");
@@ -248,7 +253,7 @@ state.cart = getStoredCart();
 if (supabaseClient) {
   syncProductsWithSupabase();
 } else {
-  // Only use defaults if Supabase is not configured at all
+  // Only use defaults if Supabase is not not configured at all
   products = defaultProducts;
   renderProducts();
 }
