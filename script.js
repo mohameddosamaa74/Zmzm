@@ -18,19 +18,7 @@ try {
   console.error("Supabase client initialization failed:", e);
 }
 
-// Default products are ONLY for local development when Supabase is not configured.
-const defaultProducts = [
-  { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
-  { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
-  { id: 3, name: "لوح كيك فضي دائري 25 سم", category: "boards", price: 55, tag: "", type: "silverboard", meta: "فضي · 25 سم · 3 مم", rating: 4.7 },
-  { id: 4, name: "علبة كب كيك — 6 قطع", category: "cupcakes", price: 62, old: 75, tag: "عرض", type: "cup", meta: "6 قطع · نافذة شفافة", rating: 4.9 },
-  { id: 5, name: "علبة كيك بيضاء 25×25×25", category: "boxes", price: 105, tag: "", type: "box", meta: "كرتون غذائي · 25 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
-  { id: 6, name: "شريط ساتان أزرق — 10 متر", category: "packaging", price: 38, tag: "جديد", type: "ribbon", meta: "أزرق ملكي · 10 متر", rating: 4.6 },
-  { id: 7, name: "علبة كب كيك — 12 قطعة", category: "cupcakes", price: 88, tag: "", type: "cup", meta: "12 قطعة · نافذة شفافة", rating: 4.8 },
-  { id: 8, name: "لوح كيك ذهبي دائري 30 سم", category: "boards", price: 75, tag: "", type: "goldboard", meta: "ذهبي · 30 سم · 3 مم", rating: 4.9 },
-  { id: 9, name: "علبة كيك طويلة 30 سم", category: "boxes", price: 130, tag: "جديد", type: "box", meta: "طويلة · 30×30×20 سم", rating: 4.7, image: "/assets/cake-box-beige.png" },
-  { id: 10, name: "مجموعة ملصقات سُكّر", category: "packaging", price: 25, tag: "", type: "ribbon", meta: "36 ملصقاً · دائري", rating: 4.6 }
-];
+
 
 function normalizeProduct(row) {
   return {
