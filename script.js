@@ -1,7 +1,7 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Now using type="module", we can safely use import.meta.env for Vercel
+// Configuration - Prioritize local window object, then environment variables
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
   url: import.meta.env?.VITE_SUPABASE_URL || "", 
   anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
@@ -18,6 +18,7 @@ try {
   console.error("Supabase client initialization failed:", e);
 }
 
+// Default products are ONLY for local development when Supabase is not configured.
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
   { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
@@ -65,21 +66,23 @@ async function loadProductsFromSupabase() {
 }
 
 async function syncProductsWithSupabase() {
-  if (!supabaseClient) {
-    console.warn("Supabase client not configured. Using defaults.");
-    products = defaultProducts;
-    renderProducts();
-    renderCart();
-    return;
-  }
-  
-  const remoteProducts = await loadProductsFromSupabase();
-  
-  if (remoteProducts && remoteProducts.length > 0) {
-    products = remoteProducts;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  if (supabaseClient) {
+    // If Supabase is active, we EXCLUSIVELY use Supabase.
+    // We clear any existing product list first to avoid merging.
+    products = []; 
+    const remoteProducts = await loadProductsFromSupabase();
+    
+    if (remoteProducts) {
+      products = remoteProducts;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    } else {
+      // Supabase is configured but returned no data or error.
+      // We keep products as [] to ensure defaults are NOT shown.
+      console.warn("Supabase active but no items found. Hiding defaults.");
+    }
   } else {
-    console.warn("No products in Supabase. Using defaults.");
+    // ONLY use defaults if Supabase is completely absent (e.g. local dev)
+    console.warn("Supabase not configured. Using defaults.");
     products = defaultProducts;
   }
   renderProducts();
