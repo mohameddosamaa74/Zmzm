@@ -1,11 +1,10 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Fix: Removed import.meta.env as it crashes plain browser scripts.
-// We rely entirely on window.ZMZAM_SUPABASE for configuration.
+// Now using type="module", we can safely use import.meta.env for Vercel
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
-  url: "", 
-  anonKey: "",
+  url: import.meta.env?.VITE_SUPABASE_URL || "", 
+  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
 };
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
@@ -269,7 +268,7 @@ document.querySelectorAll("[data-filter-link]").forEach((link) => link.addEventL
 $("#sortSelect")?.addEventListener("change", (event) => { state.sort = event.target.value; renderProducts(); });
 $("#loadMore")?.addEventListener("click", () => { state.visible += 4; renderProducts(); });
 $("#cartToggle")?.addEventListener("click", openCart);
-$("#closeCloseCart")?.addEventListener("click", closeCart);
+$("#closeCart")?.addEventListener("click", closeCart);
 $("#drawerOverlay")?.addEventListener("click", closeCart);
 $("#checkoutBtn")?.addEventListener("click", () => {
   if (!state.cart.length) {
@@ -319,7 +318,6 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape") cl
 state.cart = getStoredCart();
 
 (async () => {
-  console.log("Zmzm script initializing...");
   if (supabaseClient) {
     await syncProductsWithSupabase();
   } else {
@@ -327,5 +325,4 @@ state.cart = getStoredCart();
     renderProducts();
     renderCart();
   }
-  console.log("Zmzm script initialized.");
 })();
