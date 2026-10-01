@@ -1,21 +1,19 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// 1. Configuration - Universal approach
+// Universal Configuration
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
   url: "", 
   anonKey: "",
 };
 
-// Use a safe check for Vite environment variables
-// We check for import.meta specifically, avoiding the 'typeof import' keyword error
 try {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
+  if (typeof import !== "undefined" && import.meta && import.meta.env) {
     supabaseConfig.url = supabaseConfig.url || import.meta.env.VITE_SUPABASE_URL || "";
     supabaseConfig.anonKey = supabaseConfig.anonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   }
 } catch (e) {
-  console.warn("Environment variables not available in this context.");
+  console.warn("Env vars unavailable.");
 }
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
@@ -26,7 +24,7 @@ try {
     supabaseClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
   }
 } catch (e) {
-  console.error("Supabase client initialization failed:", e);
+  console.error("Supabase init failed:", e);
 }
 
 const defaultProducts = [
@@ -77,23 +75,16 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   if (supabaseClient) {
-    products = []; 
     const remoteProducts = await loadProductsFromSupabase();
-    if (remoteProducts) {
+    if (remoteProducts && remoteProducts.length > 0) {
       products = remoteProducts;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
     } else {
-      console.warn("Supabase active but no items found. Hiding defaults.");
-    }
-  } else {
-    const isProduction = window.location.hostname.includes("vercel.app");
-    if (isProduction) {
-      console.error("CRITICAL: Supabase not configured on Vercel!");
-      products = []; 
-    } else {
-      console.warn("Local development: Using defaults.");
+      console.warn("Using defaults due to empty Supabase.");
       products = defaultProducts;
     }
+  } else {
+    products = defaultProducts;
   }
   renderProducts();
   renderCart();
