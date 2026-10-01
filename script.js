@@ -2,11 +2,21 @@ const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
 // 1. Configuration - Universal approach
-// We check window.ZMZAM_SUPABASE (Local) OR import.meta.env (Vercel Build)
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
-  url: (typeof import !== "undefined" && import.meta.env?.VITE_SUPABASE_URL) || "", 
-  anonKey: (typeof import !== "undefined" && import.meta.env?.VITE_SUPABASE_ANON_KEY) || "",
+  url: "", 
+  anonKey: "",
 };
+
+// Use a safe check for Vite environment variables
+// We check for import.meta specifically, avoiding the 'typeof import' keyword error
+try {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    supabaseConfig.url = supabaseConfig.url || import.meta.env.VITE_SUPABASE_URL || "";
+    supabaseConfig.anonKey = supabaseConfig.anonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  }
+} catch (e) {
+  console.warn("Environment variables not available in this context.");
+}
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
 
@@ -76,8 +86,6 @@ async function syncProductsWithSupabase() {
       console.warn("Supabase active but no items found. Hiding defaults.");
     }
   } else {
-    // FALLBACK: Only show defaults if we are definitely not in Production
-    // If URL contains "vercel.app", we assume Production and hide defaults
     const isProduction = window.location.hostname.includes("vercel.app");
     if (isProduction) {
       console.error("CRITICAL: Supabase not configured on Vercel!");
