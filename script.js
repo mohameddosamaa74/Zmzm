@@ -2,6 +2,8 @@ const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 const supabaseConfig = window.ZMZAM_SUPABASE || { enabled: false };
 const supabaseClient = supabaseConfig.enabled && window.supabase ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) : null;
+
+// We keep defaults ONLY as a fallback if Supabase is completely empty or offline
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
   { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
@@ -31,8 +33,8 @@ function normalizeProduct(row) {
   };
 }
 
-// Start with default products so the page is never empty
-let products = [...defaultProducts];
+// IMPORTANT: Initialize as EMPTY. Do NOT load defaultProducts here.
+let products = [];
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) return null;
@@ -46,16 +48,23 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   if (!supabaseClient) {
+    console.warn("Supabase client not configured. Falling back to defaults.");
+    products = defaultProducts;
     renderProducts();
     renderCart();
     return;
   }
+  
   const remoteProducts = await loadProductsFromSupabase();
+  
   if (remoteProducts && remoteProducts.length > 0) {
+    // If we found items in Supabase, ONLY use those. Completely ignore defaults.
     products = remoteProducts;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   } else {
-    console.warn("No products found in Supabase, keeping defaults.");
+    // Only use defaults if Supabase is literally empty or errored
+    console.warn("No products found in Supabase table, using defaults.");
+    products = defaultProducts;
   }
   renderProducts();
   renderCart();
@@ -239,6 +248,8 @@ state.cart = getStoredCart();
 if (supabaseClient) {
   syncProductsWithSupabase();
 } else {
+  // Only use defaults if Supabase is not configured at all
+  products = defaultProducts;
   renderProducts();
 }
 renderCart();
