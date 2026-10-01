@@ -1,17 +1,23 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// 1. Configuration - Prioritize local window object, then environment variables
+// Fix: Removed import.meta.env as it crashes plain browser scripts.
+// We rely entirely on window.ZMZAM_SUPABASE for configuration.
 const supabaseConfig = window.ZMZAM_SUPABASE || { 
-  url: import.meta.env?.VITE_SUPABASE_URL || "", 
-  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
+  url: "", 
+  anonKey: "",
 };
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
 
-const supabaseClient = isSupabaseConfigured 
-  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) 
-  : null;
+let supabaseClient = null;
+try {
+  if (isSupabaseConfigured && window.supabase) {
+    supabaseClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+  }
+} catch (e) {
+  console.error("Supabase client initialization failed:", e);
+}
 
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
@@ -313,6 +319,7 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape") cl
 state.cart = getStoredCart();
 
 (async () => {
+  console.log("Zmzm script initializing...");
   if (supabaseClient) {
     await syncProductsWithSupabase();
   } else {
@@ -320,4 +327,5 @@ state.cart = getStoredCart();
     renderProducts();
     renderCart();
   }
+  console.log("Zmzm script initialized.");
 })();
