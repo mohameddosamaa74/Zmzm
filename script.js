@@ -330,11 +330,5 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape") cl
 state.cart = getStoredCart();
 
 (async () => {
-  if (supabaseClient) {
-    await syncProductsWithSupabase();
-  } else {
-    products = defaultProducts;
-    renderProducts();
-    renderCart();
-  }
+  await syncProductsWithSupabase();
 })();
