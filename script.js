@@ -1,9 +1,9 @@
 const CART_STORAGE_KEY = "zmzm-cart";
 
 // Supabase configuration - Vercel/Vite environment variables
-const supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || "",
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
+const supabaseConfig = window.ZMZAM_SUPABASE || {
+  url: "",
+  anonKey: "",
 };
 
 const isSupabaseConfigured =
