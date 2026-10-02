@@ -2,6 +2,35 @@ import "./supabase-config.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
 const BULK_WHATSAPP_NUMBER = "201024311053";
+const EGYPT_GOVERNORATES = [
+  "القاهرة",
+  "الإسكندرية",
+  "بورسعيد",
+  "السويس",
+  "دمياط",
+  "الدقهلية",
+  "الشرقية",
+  "القليوبية",
+  "كفر الشيخ",
+  "الغربية",
+  "المنوفية",
+  "البحيرة",
+  "الإسماعيلية",
+  "الجيزة",
+  "بني سويف",
+  "الفيوم",
+  "المنيا",
+  "أسيوط",
+  "سوهاج",
+  "قنا",
+  "الأقصر",
+  "أسوان",
+  "البحر الأحمر",
+  "الوادي الجديد",
+  "مطروح",
+  "شمال سيناء",
+  "جنوب سيناء",
+];
 
 const supabaseUrl = window.ZMZAM_SUPABASE?.url || "";
 const supabaseAnonKey = window.ZMZAM_SUPABASE?.anonKey || "";
@@ -257,7 +286,7 @@ function renderProducts() {
         <h3>${product.name}</h3>
 
         <div class="product-meta">
-          ★ ${product.rating} &nbsp; · &nbsp; ${product.meta}
+          ${product.meta}
         </div>
 
         <div class="product-row">
@@ -512,8 +541,6 @@ $("#productGrid")?.addEventListener(
             <h2>${product.name}</h2>
 
             <div class="product-meta">
-              ★ ${product.rating}
-              &nbsp; · &nbsp;
               ${product.meta}
             </div>
 
@@ -625,6 +652,19 @@ $("#modalContent")?.addEventListener(
 );
 
 $("#modalContent")?.addEventListener(
+  "input",
+  (event) => {
+    const phoneInput = event.target.closest(
+      '#bulkQuoteForm input[name="phone"]'
+    );
+
+    if (phoneInput) {
+      phoneInput.value = phoneInput.value.replace(/\D/g, "").slice(0, 11);
+    }
+  }
+);
+
+$("#modalContent")?.addEventListener(
   "submit",
   (event) => {
     const form = event.target.closest("#bulkQuoteForm");
@@ -638,15 +678,25 @@ $("#modalContent")?.addEventListener(
       (item) => item.id === productId
     );
     const quantity = Number(form.quantity.value) || 1;
+    const phone = form.elements.phone.value;
 
     if (!product) {
       toast("الرجاء اختيار منتج صحيح");
       return;
     }
 
+    if (!/^01[0125][0-9]{8}$/.test(phone)) {
+      toast("أدخل رقم هاتف مصري صحيحاً مكوناً من 11 رقماً");
+      form.elements.phone.focus();
+      return;
+    }
+
     const message = [
       "طلب تسعير بالجملة من موقع زمزم",
       "",
+      `الاسم: ${form.elements.firstName.value} ${form.elements.lastName.value}`,
+      `الهاتف: ${phone}`,
+      `المحافظة: ${form.elements.governorate.value}`,
       `المنتج: ${product.name}`,
       `الكمية: ${quantity}`,
     ].join("\n");
@@ -675,12 +725,51 @@ function openBulkQuoteModal() {
         .join("")
     : '<p class="bulk-products-empty">لا توجد منتجات متاحة حالياً</p>';
 
+  const governorateOptions = EGYPT_GOVERNORATES
+    .map((governorate) => `<option value="${governorate}">${governorate}</option>`)
+    .join("");
+
   $("#modalContent").innerHTML = `
     <div class="bulk-quote-modal">
       <span class="kicker">تسعير بالجملة</span>
       <h2>اطلب عرض سعر</h2>
 
       <form id="bulkQuoteForm" class="bulk-quote-form">
+        <div class="bulk-quote-contact-grid">
+          <label class="bulk-quote-field">
+            الاسم الأول
+            <input name="firstName" type="text" autocomplete="given-name" required />
+          </label>
+
+          <label class="bulk-quote-field">
+            الاسم الأخير
+            <input name="lastName" type="text" autocomplete="family-name" required />
+          </label>
+
+          <label class="bulk-quote-field">
+            رقم الهاتف
+            <input
+              name="phone"
+              type="tel"
+              inputmode="numeric"
+              autocomplete="tel-national"
+              placeholder="01012345678"
+              pattern="01[0125][0-9]{8}"
+              maxlength="11"
+              title="أدخل رقم هاتف مصرياً صحيحاً مكوناً من 11 رقماً"
+              required
+            />
+          </label>
+
+          <label class="bulk-quote-field">
+            المحافظة
+            <select name="governorate" autocomplete="address-level1" required>
+              <option value="">اختر المحافظة</option>
+              ${governorateOptions}
+            </select>
+          </label>
+        </div>
+
         <label class="bulk-quote-field">
           المنتج
           <input type="hidden" name="product" value="" />

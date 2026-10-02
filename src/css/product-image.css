@@ -1,0 +1,10 @@
+.product-image,
+.product-image.board,
+.product-image.cupcakes,
+.product-image.packaging {
+  background: #fff;
+}
+
+.product-image img {
+  border-radius: 0 !important;
+}

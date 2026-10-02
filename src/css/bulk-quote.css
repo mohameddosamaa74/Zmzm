@@ -21,6 +21,7 @@
   margin: 0 0 6px;
   color: var(--navy);
   font-size: 24px;
+  font-weight: 700;
 }
 
 .bulk-quote-form {
@@ -29,13 +30,65 @@
   gap: 16px;
 }
 
+.bulk-quote-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .bulk-quote-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
   color: var(--navy);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
+}
+
+.bulk-quote-field input:not([type="hidden"]),
+.bulk-quote-field select {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f9fbff;
+  color: var(--navy);
+  font: inherit;
+}
+
+.bulk-quote-field select {
+  appearance: none;
+  padding-left: 42px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%231769d4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 16px center;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.bulk-quote-field select:hover {
+  border-color: #b9d1f1;
+  background-color: #f9fbff;
+}
+
+.bulk-quote-field select option {
+  padding: 10px;
+  background: #fff;
+  color: var(--navy);
+}
+
+.bulk-quote-field select option:checked {
+  background: var(--blue);
+  color: #fff;
+}
+
+.bulk-quote-field input:not([type="hidden"]):focus,
+.bulk-quote-field select:focus {
+  outline: none;
+  border-color: rgba(23, 105, 212, 0.5);
+  box-shadow: 0 0 0 3px rgba(23, 105, 212, 0.12);
 }
 
 .bulk-product-picker {
@@ -227,6 +280,11 @@
 
   .bulk-quote-modal > h2 {
     font-size: 21px;
+  }
+
+  .bulk-quote-contact-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .bulk-product-price {
