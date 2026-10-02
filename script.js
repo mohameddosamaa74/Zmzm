@@ -1,8 +1,7 @@
 const CART_STORAGE_KEY = "zmzm-cart";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
+const supabaseUrl = window.ZMZAM_SUPABASE?.url || "";
+const supabaseAnonKey = window.ZMZAM_SUPABASE?.anonKey || "";
 console.log("Supabase URL configured:", Boolean(supabaseUrl));
 console.log("Supabase key configured:", Boolean(supabaseAnonKey));
 

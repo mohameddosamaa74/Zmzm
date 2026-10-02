@@ -4,8 +4,8 @@
 // window.ZMZAM_SUPABASE = { url: "https://abcd1234.supabase.co", anonKey: "eyJ...", enabled: true };
 if (!window.ZMZAM_SUPABASE) {
   window.ZMZAM_SUPABASE = {
-    url: "",
-    anonKey: "",
+    url: "https://qfijakgpnnnefxnjsiaj.supabase.co",
+    anonKey: "sb_publishable_kCM_bOyVtN9wxI10TL2mNA_MB2YsZHE",
     enabled: false
   };
 }
