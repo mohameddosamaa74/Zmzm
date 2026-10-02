@@ -1,26 +1,18 @@
-const ADMIN_AUTH_KEY = "zmzm-admin-auth";
-const STORAGE_KEY = "zmzm-products";
-const supabaseConfig = window.ZMZAM_SUPABASE || { enabled: false };
-const supabaseClient = supabaseConfig.enabled && window.supabase ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey) : null;
-const defaultProducts = [
-  { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
-  { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8 },
-  { id: 3, name: "لوح كيك فضي دائري 25 سم", category: "boards", price: 55, tag: "", type: "silverboard", meta: "فضي · 25 سم · 3 مم", rating: 4.7 },
-  { id: 4, name: "علبة كب كيك — 6 قطع", category: "cupcakes", price: 62, old: 75, tag: "عرض", type: "cup", meta: "6 قطع · نافذة شفافة", rating: 4.9 },
-  { id: 5, name: "علبة كيك بيضاء 25×25×25", category: "boxes", price: 105, tag: "", type: "box", meta: "كرتون غذائي · 25 سم", rating: 4.8 },
-  { id: 6, name: "شريط ساتان أزرق — 10 متر", category: "packaging", price: 38, tag: "جديد", type: "ribbon", meta: "أزرق ملكي · 10 متر", rating: 4.6 },
-  { id: 7, name: "علبة كب كيك — 12 قطعة", category: "cupcakes", price: 88, tag: "", type: "cup", meta: "12 قطعة · نافذة شفافة", rating: 4.8 },
-  { id: 8, name: "لوح كيك ذهبي دائري 30 سم", category: "boards", price: 75, tag: "", type: "goldboard", meta: "ذهبي · 30 سم · 3 مم", rating: 4.9 },
-  { id: 9, name: "علبة كيك طويلة 30 سم", category: "boxes", price: 130, tag: "جديد", type: "box", meta: "طويلة · 30×30×20 سم", rating: 4.7 },
-  { id: 10, name: "مجموعة ملصقات سُكّر", category: "packaging", price: 25, tag: "", type: "ribbon", meta: "36 ملصقاً · دائري", rating: 4.6 }
-];
+import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
+import { escapeHtml, safeImageUrl } from "./safe-dom.js";
+
+const PRODUCT_FIELDS = "id,name,category,price,old_price,tag,meta,rating,specs,image,type";
+const categoryNames = {
+  boards: "ألواح الكيك",
+  boxes: "علب الكيك",
+  cupcakes: "كب كيك",
+  packaging: "تغليف",
+};
 
 const productForm = document.getElementById("productForm");
 const productTableBody = document.getElementById("productTableBody");
 const toast = document.getElementById("toast");
 const formTitle = document.getElementById("formTitle");
-const cancelEditBtn = document.getElementById("cancelEdit");
-const resetDemoBtn = document.getElementById("resetDemo");
 const loginForm = document.getElementById("loginForm");
 const authScreen = document.getElementById("authScreen");
 const adminShell = document.getElementById("adminShell");
@@ -29,147 +21,55 @@ const productImageInput = document.getElementById("productImage");
 const productImagePreview = document.getElementById("productImagePreview");
 const imagePreviewText = document.getElementById("imagePreviewText");
 const currentImageInput = document.getElementById("currentImage");
-
-const categoryNames = {
-  boards: "ألواح الكيك",
-  boxes: "علب الكيك",
-  cupcakes: "كب كيك",
-  packaging: "تغليف"
-};
-
-function getProductsFromStorage() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (error) {
-      console.warn("لم يتم قراءة بيانات المنتجات، سيتم العودة إلى البيانات الافتراضية.");
-    }
-  }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProducts));
-  return defaultProducts;
-}
-
-function normalizeProduct(row) {
-  return {
-    id: Number(row.id ?? 0),
-    name: row.name || "",
-    category: row.category || "boxes",
-    price: Number(row.price || 0),
-    old: Number(row.old_price || row.old || 0),
-    tag: row.tag || "",
-    meta: row.meta || "",
-    rating: Number(row.rating || 4.8),
-    specs: row.specs || {},
-    image: row.image || row.image_url || row.photo || "",
-    type: row.type || (row.category === "boards" ? "goldboard" : row.category === "cupcakes" ? "cup" : row.category === "packaging" ? "ribbon" : "box")
-  };
-}
-
-async function loadProductsFromSupabase() {
-  if (!supabaseClient) return null;
-  const { data, error } = await supabaseClient.from("products").select("*").order("id", { ascending: false });
-  if (error) {
-    console.warn("Supabase load failed:", error.message);
-    return null;
-  }
-  return data.map(normalizeProduct);
-}
-
-async function saveProductsToSupabase() {
-  if (!supabaseClient) return false;
-
-  const basePayload = products.map((product) => ({
-    id: product.id,
-    name: product.name,
-    category: product.category,
-    price: Number(product.price || 0),
-    old_price: product.old || null,
-    tag: product.tag || null,
-    meta: product.meta || "",
-    rating: Number(product.rating || 4.8),
-    specs: product.specs || {},
-    type: product.type || "box"
-  }));
-
-  const payload = products.map((product) => ({
-    ...basePayload.find((row) => row.id === product.id),
-    ...(product.image ? { image: product.image } : {})
-  }));
-
-  const tryUpsert = async (rows) => {
-    const { error } = await supabaseClient.from("products").upsert(rows, { onConflict: "id" });
-    return error;
-  };
-
-  let error = await tryUpsert(payload);
-  if (error && /image/i.test(error.message || "")) {
-    console.warn("Supabase image column missing; retrying without image field.");
-    error = await tryUpsert(basePayload);
-  }
-
-  if (error) {
-    console.error("Supabase save failed:", error);
-    return false;
-  }
-  return true;
-}
-
-async function deleteProductFromSupabase(productId) {
-  if (!supabaseClient) return false;
-  const { error } = await supabaseClient.from("products").delete().eq("id", productId);
-  if (error) {
-    console.error("Supabase delete failed:", error);
-    return false;
-  }
-  return true;
-}
-
-let products = getProductsFromStorage();
-
-function isLoggedIn() {
-  return localStorage.getItem(ADMIN_AUTH_KEY) === "true";
-}
-
-function setLoggedIn(flag) {
-  localStorage.setItem(ADMIN_AUTH_KEY, flag ? "true" : "false");
-}
-
-function updateAuthUI() {
-  const loggedIn = isLoggedIn();
-  authScreen.classList.toggle("hidden", loggedIn);
-  adminShell.classList.toggle("hidden", !loggedIn);
-}
-
-function saveProducts() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-}
+let products = [];
+let isAdmin = false;
 
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2200);
+  window.setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
 function formatMoney(value) {
   return `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 }
 
+function normalizeProduct(row) {
+  return {
+    ...row,
+    id: Number(row.id),
+    name: String(row.name || ""),
+    category: categoryNames[row.category] ? row.category : "boxes",
+    price: Number(row.price),
+    old: Number(row.old_price || 0),
+    tag: String(row.tag || ""),
+    meta: String(row.meta || ""),
+    rating: Number(row.rating || 4.8),
+    specs: row.specs || {},
+    image: String(row.image || ""),
+    type: String(row.type || "box"),
+  };
+}
+
+function updateAuthUI() {
+  authScreen.classList.toggle("hidden", isAdmin);
+  adminShell.classList.toggle("hidden", !isAdmin);
+}
+
 function renderStats() {
-  document.getElementById("totalProducts").textContent = products.length;
-  document.getElementById("boardsCount").textContent = products.filter((item) => item.category === "boards").length;
-  document.getElementById("boxesCount").textContent = products.filter((item) => item.category === "boxes").length;
-  document.getElementById("packagingCount").textContent = products.filter((item) => item.category === "packaging").length;
+  document.getElementById("totalProducts").textContent = String(products.length);
+  document.getElementById("boardsCount").textContent = String(products.filter((item) => item.category === "boards").length);
+  document.getElementById("boxesCount").textContent = String(products.filter((item) => item.category === "boxes").length);
+  document.getElementById("packagingCount").textContent = String(products.filter((item) => item.category === "packaging").length);
 }
 
 function renderTable() {
   productTableBody.innerHTML = products.map((product) => `
     <tr>
-      <td><strong>${product.name}</strong></td>
-      <td>${categoryNames[product.category] || product.category}</td>
+      <td><strong>${escapeHtml(product.name)}</strong></td>
+      <td>${escapeHtml(categoryNames[product.category] || product.category)}</td>
       <td>${formatMoney(product.price)}</td>
-      <td>${product.rating || 4.8}</td>
+      <td>${escapeHtml(product.rating)}</td>
       <td>
         <div class="action-group">
           <button class="icon-btn" type="button" data-action="edit" data-id="${product.id}" aria-label="تعديل المنتج">✎</button>
@@ -182,246 +82,275 @@ function renderTable() {
   renderStats();
 }
 
-function resetFilePreview() {
-  if (productImageInput) productImageInput.value = "";
-  if (currentImageInput) currentImageInput.value = "";
-  if (productImagePreview) {
-    productImagePreview.src = "";
-    productImagePreview.classList.add("hidden");
-  }
-  if (imagePreviewText) {
-    imagePreviewText.textContent = "لا توجد صورة محددة";
-  }
-}
-
 function setImagePreview(source) {
-  if (!productImagePreview || !imagePreviewText) return;
-  if (source) {
-    productImagePreview.src = source;
-    productImagePreview.classList.remove("hidden");
-    imagePreviewText.textContent = "تم تحديد الصورة";
-  } else {
-    productImagePreview.src = "";
-    productImagePreview.classList.add("hidden");
-    imagePreviewText.textContent = "لا توجد صورة محددة";
-  }
+  const safeSource = safeImageUrl(source);
+  productImagePreview.src = safeSource;
+  productImagePreview.classList.toggle("hidden", !safeSource);
+  imagePreviewText.textContent = safeSource ? "تم تحديد الصورة" : "لا توجد صورة محددة";
 }
 
 function readImageFile(file) {
   return new Promise((resolve, reject) => {
-    if (!file) {
-      resolve("");
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result || "");
+    reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(new Error("فشل في قراءة الصورة"));
     reader.readAsDataURL(file);
   });
 }
 
-productImageInput.addEventListener("change", async (event) => {
-  const [file] = event.target.files || [];
-  if (!file) {
-    setImagePreview(currentImageInput?.value || "");
-    return;
-  }
+async function loadProducts() {
+  const { data, error } = await supabaseClient
+    .from("products")
+    .select(PRODUCT_FIELDS)
+    .order("id", { ascending: false });
 
-  try {
-    const dataUrl = await readImageFile(file);
-    currentImageInput.value = dataUrl;
-    setImagePreview(dataUrl);
-  } catch (error) {
-    showToast("تعذّر تحميل الصورة، حاول مرة أخرى");
-  }
-});
+  if (error) throw error;
+  products = (data || []).map(normalizeProduct);
+  renderTable();
+}
 
 function resetForm() {
   productForm.reset();
   document.getElementById("productId").value = "";
-  document.getElementById("specs").value = "";
   currentImageInput.value = "";
-  resetFilePreview();
+  productImageInput.value = "";
+  setImagePreview("");
   formTitle.textContent = "إضافة منتج";
   document.getElementById("saveProduct").textContent = "حفظ المنتج";
   document.getElementById("rating").value = "4.8";
 }
 
 function fillForm(product) {
-  document.getElementById("productId").value = product.id;
+  document.getElementById("productId").value = String(product.id);
   document.getElementById("name").value = product.name;
   document.getElementById("category").value = product.category;
-  document.getElementById("price").value = product.price;
-  document.getElementById("oldPrice").value = product.old || "";
-  document.getElementById("tag").value = product.tag || "";
-  document.getElementById("rating").value = product.rating || 4.8;
-  document.getElementById("meta").value = product.meta || "";
-  const specsValue = product.specs ? (typeof product.specs === "string" ? product.specs : JSON.stringify(product.specs, null, 2)) : "";
-  document.getElementById("specs").value = specsValue;
-  currentImageInput.value = product.image || "";
-  setImagePreview(product.image || "");
+  document.getElementById("price").value = String(product.price);
+  document.getElementById("oldPrice").value = product.old ? String(product.old) : "";
+  document.getElementById("tag").value = product.tag;
+  document.getElementById("rating").value = String(product.rating);
+  document.getElementById("meta").value = product.meta;
+  document.getElementById("specs").value = JSON.stringify(product.specs, null, 2);
+  currentImageInput.value = product.image;
+  setImagePreview(product.image);
   formTitle.textContent = "تعديل المنتج";
   document.getElementById("saveProduct").textContent = "تحديث المنتج";
 }
 
-productTableBody.addEventListener("click", async (event) => {
-  const target = event.target.closest("button");
-  if (!target) return;
+async function optimizeImageFile(file) {
+  if (file.size > 5 * 1024 * 1024) throw new Error("حجم الصورة الأصلية أكبر من 5 ميجابايت");
 
-  const { action, id } = target.dataset;
-  const product = products.find((item) => item.id === Number(id));
+  const image = await createImageBitmap(file);
+  const scale = Math.min(1, 1200 / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close();
+
+  const compressedImage = await new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("تعذر ضغط الصورة"));
+    }, "image/webp", 0.78);
+  });
+  if (compressedImage.size > 500 * 1024) throw new Error("تعذر ضغط الصورة إلى أقل من 500 كيلوبايت");
+  return readImageFile(compressedImage);
+}
+
+productImageInput.addEventListener("change", async (event) => {
+  const [file] = event.target.files || [];
+  if (!file) return;
+
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    productImageInput.value = "";
+    showToast("اختر صورة JPG أو PNG أو WebP بحجم لا يتجاوز 5 ميجابايت");
+    return;
+  }
+
+  try {
+    currentImageInput.value = await optimizeImageFile(file);
+    setImagePreview(currentImageInput.value);
+  } catch (error) {
+    console.error("تعذرت معالجة صورة المنتج.", error);
+    showToast(error.message || "تعذرت معالجة الصورة، حاول مرة أخرى");
+  }
+});
+
+productTableBody.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+
+  const product = products.find((item) => item.id === Number(button.dataset.id));
   if (!product) return;
 
-  if (action === "edit") {
+  if (button.dataset.action === "edit") {
     fillForm(product);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
   }
 
-  if (action === "delete") {
-    const productId = Number(id);
-    products = products.filter((item) => item.id !== productId);
-    saveProducts();
-    if (supabaseClient) {
-      const deleted = await deleteProductFromSupabase(productId);
-      if (!deleted) {
-        showToast("تم حذف المنتج محلياً فقط — تحقق من إعدادات Supabase");
-      }
-    }
-    renderTable();
-    resetForm();
-    showToast("تم حذف المنتج بنجاح");
+  if (button.dataset.action !== "delete" || !window.confirm(`حذف المنتج "${product.name}"؟`)) return;
+
+  button.disabled = true;
+  const { error } = await supabaseClient.from("products").delete().eq("id", product.id);
+  if (error) {
+    console.error("تعذر حذف المنتج من Supabase.", error);
+    showToast("تعذر حذف المنتج. لم يتم تغيير البيانات.");
+    button.disabled = false;
+    return;
   }
+
+  products = products.filter((item) => item.id !== product.id);
+  renderTable();
+  resetForm();
+  showToast("تم حذف المنتج");
 });
 
 productForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
   const productId = document.getElementById("productId").value;
+  const name = document.getElementById("name").value.trim();
+  const meta = document.getElementById("meta").value.trim();
+  const price = Number(document.getElementById("price").value);
+  const oldPriceValue = document.getElementById("oldPrice").value;
+  const oldPrice = oldPriceValue ? Number(oldPriceValue) : null;
   const specsText = document.getElementById("specs").value.trim();
   let specs = {};
+
+  if (!name || !meta || !Number.isFinite(price) || price <= 0 ||
+      (oldPrice !== null && (!Number.isFinite(oldPrice) || oldPrice < 0))) {
+    showToast("تحقق من اسم المنتج ووصفه وسعره");
+    return;
+  }
 
   if (specsText) {
     try {
       specs = JSON.parse(specsText);
+      if (!specs || typeof specs !== "object" || Array.isArray(specs)) throw new Error("المواصفات يجب أن تكون كائن JSON");
     } catch (error) {
-      specs = { raw: specsText };
+      showToast("المواصفات يجب أن تكون بصيغة JSON صحيحة");
+      return;
     }
   }
 
-  const selectedFile = productImageInput?.files?.[0];
-  let imageValue = currentImageInput?.value || "";
-
-  if (selectedFile) {
-    imageValue = await readImageFile(selectedFile);
-  }
-
-  const productData = {
-    name: document.getElementById("name").value.trim(),
-    category: document.getElementById("category").value,
-    price: Number(document.getElementById("price").value),
-    old: Number(document.getElementById("oldPrice").value || 0),
-    tag: document.getElementById("tag").value.trim(),
-    meta: document.getElementById("meta").value.trim(),
+  const category = document.getElementById("category").value;
+  const payload = {
+    name,
+    category,
+    price,
+    old_price: oldPrice,
+    tag: document.getElementById("tag").value.trim() || null,
+    meta,
     rating: Number(document.getElementById("rating").value || 4.8),
     specs,
-    image: imageValue,
-    type: "box"
+    image: currentImageInput.value || null,
+    type: category === "boards" ? "goldboard" :
+      category === "cupcakes" ? "cup" :
+      category === "packaging" ? "ribbon" : "box",
   };
+  const saveButton = document.getElementById("saveProduct");
+  saveButton.disabled = true;
 
-  if (!productData.name || !productData.meta || !productData.price) {
-    showToast("يرجى تعبئة الحقول الأساسية");
-    return;
+  try {
+    const query = productId
+      ? supabaseClient.from("products").update(payload).eq("id", Number(productId))
+      : supabaseClient.from("products").insert(payload);
+    const { data, error } = await query.select(PRODUCT_FIELDS).single();
+    if (error) throw error;
+
+    const savedProduct = normalizeProduct(data);
+    products = productId
+      ? products.map((product) => product.id === savedProduct.id ? savedProduct : product)
+      : [savedProduct, ...products];
+    renderTable();
+    resetForm();
+    showToast(productId ? "تم تحديث المنتج" : "تمت إضافة المنتج");
+  } catch (error) {
+    console.error("تعذر حفظ المنتج في Supabase.", error);
+    showToast("تعذر حفظ المنتج. لم يتم تغيير البيانات.");
+  } finally {
+    saveButton.disabled = false;
   }
-
-  if (productId) {
-    products = products.map((product) =>
-      product.id === Number(productId)
-        ? { ...product, ...productData }
-        : product
-    );
-    showToast("تم تحديث المنتج بنجاح");
-  } else {
-    const newId = products.length ? Math.max(...products.map((item) => item.id)) + 1 : 1;
-    products.unshift({ ...productData, id: newId, type: productData.category === "boards" ? "goldboard" : productData.category === "cupcakes" ? "cup" : productData.category === "packaging" ? "ribbon" : "box" });
-    showToast("تمت إضافة المنتج بنجاح");
-  }
-
-  saveProducts();
-  if (supabaseClient) {
-   const synced = await saveProductsToSupabase();
-   if (!synced) {
-     showToast("تم حفظ المنتج محلياً فقط — تحقق من إعدادات Supabase");
-   }
- }
- renderTable();
- resetForm();
 });
 
-cancelEditBtn.addEventListener("click", () => {
-  resetForm();
-});
-
-resetDemoBtn.addEventListener("click", async () => {
-  products = [...defaultProducts];
-  saveProducts();
-  if (supabaseClient) {
-    const synced = await saveProductsToSupabase();
-    if (!synced) {
-      showToast("تمت استعادة البيانات محلياً فقط — تحقق من إعدادات Supabase");
-    }
-  }
-  renderTable();
-  resetForm();
-  showToast("تمت استعادة البيانات التجريبية");
-});
+document.getElementById("cancelEdit").addEventListener("click", resetForm);
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-
   if (!supabaseClient) {
-    showToast("يرجى تفعيل Supabase أولاً في ملف التكوين");
+    showToast(supabaseConfigurationError);
     return;
   }
 
-  const { data, error } = await supabaseClient
-    .from("admin_credentials")
-    .select("*")
-    .eq("username", username)
-    .eq("password", password)
-    .maybeSingle();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const submitButton = loginForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
 
-  if (!error && data) {
-    setLoggedIn(true);
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (data.user?.app_metadata?.role !== "admin") {
+      await supabaseClient.auth.signOut();
+      showToast("هذا الحساب غير مصرح له بإدارة المتجر");
+      return;
+    }
+
+    isAdmin = true;
     updateAuthUI();
-    showToast("تم تسجيل الدخول بنجاح");
-    document.getElementById("loginForm").reset();
-    return;
+    await loadProducts();
+    loginForm.reset();
+    showToast("تم تسجيل الدخول");
+  } catch (error) {
+    console.error("فشل تسجيل دخول الإدارة.", error);
+    showToast("تعذر تسجيل الدخول. تحقق من البيانات أو إعدادات الإدارة.");
+  } finally {
+    submitButton.disabled = false;
   }
-
-  showToast("اسم المستخدم أو كلمة المرور غير صحيحة");
 });
 
-logoutBtn.addEventListener("click", () => {
-  setLoggedIn(false);
+logoutBtn.addEventListener("click", async () => {
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    console.error("تعذر تسجيل الخروج.", error);
+    showToast("تعذر تسجيل الخروج. حاول مرة أخرى.");
+    return;
+  }
+
+  isAdmin = false;
+  products = [];
+  renderTable();
   updateAuthUI();
   showToast("تم تسجيل الخروج");
 });
 
 async function initializeAdmin() {
-  if (supabaseClient) {
-    const remoteProducts = await loadProductsFromSupabase();
-    if (remoteProducts && remoteProducts.length) {
-      products = remoteProducts;
-      saveProducts();
-    }
-  }
   updateAuthUI();
-  renderTable();
-  resetForm();
+  if (!supabaseClient) {
+    showToast(supabaseConfigurationError);
+    return;
+  }
+
+  try {
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData.session) {
+      resetForm();
+      return;
+    }
+
+    const { data, error } = await supabaseClient.auth.getUser();
+    if (error) throw error;
+    isAdmin = data.user?.app_metadata?.role === "admin";
+    updateAuthUI();
+    if (isAdmin) await loadProducts();
+    resetForm();
+  } catch (error) {
+    console.error("تعذر التحقق من جلسة الإدارة.", error);
+    isAdmin = false;
+    updateAuthUI();
+    showToast("تعذر التحقق من جلسة الدخول. سجل الدخول مرة أخرى.");
+  }
 }
 
 initializeAdmin();

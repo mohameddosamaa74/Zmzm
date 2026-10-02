@@ -26,8 +26,8 @@
 
         <form id="loginForm">
           <label>
-            اسم المستخدم
-            <input id="username" type="text" placeholder="admin" required />
+            البريد الإلكتروني
+            <input id="email" type="email" autocomplete="username" required />
           </label>
           <label>
             كلمة المرور
@@ -38,7 +38,7 @@
 
         <div class="demo-credentials">
           <span>ملاحظة:</span>
-          <strong>يتم حفظ بيانات الدخول داخل Supabase فقط.</strong>
+          <strong>الدخول متاح لحسابات الإدارة المصرح بها فقط.</strong>
         </div>
       </div>
     </div>
@@ -68,7 +68,6 @@
             <h1>إدارة المنتجات</h1>
           </div>
           <div class="topbar-actions">
-            <button class="btn btn-primary" type="button" id="resetDemo">إرجاع البيانات التجريبية</button>
             <button class="btn btn-secondary" type="button" id="logoutBtn">تسجيل الخروج</button>
           </div>
         </header>
@@ -149,11 +148,11 @@
 
                 <div class="full-span image-upload-wrap">
                   <label for="productImage">صورة المنتج</label>
-                  <input id="productImage" name="productImage" type="file" accept="image/*" />
+                  <input id="productImage" name="productImage" type="file" accept="image/jpeg,image/png,image/webp" />
                   <input type="hidden" id="currentImage" value="" />
                   <div class="image-preview-box empty" id="imagePreviewBox">
                     <img id="productImagePreview" alt="معاينة صورة المنتج" />
-                    <span id="imagePreviewText">لا توجد صورة محددة</span>
+                    <span id="imagePreviewText">اختر صورة بحجم مناسب، وسيتم حفظها في المنتج</span>
                   </div>
                 </div>
               </div>
@@ -189,8 +188,6 @@
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="src/js/supabase-config.js"></script>
-    <script src="src/js/admin.js"></script>
+    <script type="module" src="src/js/admin.js"></script>
   </body>
 </html>

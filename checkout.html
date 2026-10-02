@@ -25,14 +25,14 @@
           <a href="index.html#contact">تواصل معنا</a>
         </nav>
         <div class="header-actions">
-          <button class="header-icon cart-toggle" type="button" aria-label="السلة">
+          <a class="header-icon cart-toggle" href="index.html#shop" aria-label="العودة إلى المتجر">
             <svg class="cart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M3.25 4.5h1.1c.58 0 1.08.4 1.21.97l2.32 10.42a2 2 0 0 0 1.95 1.57h8.33a2 2 0 0 0 1.94-1.51L22 8H6.1" />
               <circle cx="10" cy="20" r="1.15" />
               <circle cx="18" cy="20" r="1.15" />
             </svg>
             <b id="cartCount">0</b>
-          </button>
+          </a>
         </div>
       </div>
     </header>
@@ -81,6 +81,7 @@
                 <div class="select-wrap">
                   <select name="governorate" required>
                     <option value="">اختر المحافظة</option>
+                    <option value="القاهرة">القاهرة</option>
                     <option value="الإسكندرية">الإسكندرية</option>
                     <option value="الإسماعيلية">الإسماعيلية</option>
                     <option value="الأقصر">الأقصر</option>
@@ -97,7 +98,6 @@
                     <option value="شمال سيناء">شمال سيناء</option>
                     <option value="الغربية">الغربية</option>
                     <option value="الفيوم">الفيوم</option>
-                    <option value="القاهرة">القاهرة</option>
                     <option value="القليوبية">القليوبية</option>
                     <option value="قنا">قنا</option>
                     <option value="كفر الشيخ">كفر الشيخ</option>
@@ -107,8 +107,7 @@
                     <option value="الوادي الجديد">الوادي الجديد</option>
                     <option value="أسوان">أسوان</option>
                     <option value="أسيوط">أسيوط</option>
-                    <option value="حلوان">حلوان</option>
-                    <option value="رأس البر">رأس البر</option>
+                    <option value="البحر الأحمر">البحر الأحمر</option>
                   </select>
                 </div>
               </label>
@@ -144,7 +143,7 @@
               </label>
             </div>
 
-            <button type="submit" class="submit-btn">إتمام الطلب عبر واتساب</button>
+            <button type="submit" class="submit-btn" disabled>إتمام الطلب عبر واتساب</button>
           </form>
         </section>
 

@@ -1,20 +1,20 @@
-// IMPORTANT: do not commit your real Supabase URL/key to GitHub.
-// Fill these values locally only, or set them in the browser before loading admin.js.
-// Example:
-// window.ZMZAM_SUPABASE = { url: "https://abcd1234.supabase.co", anonKey: "eyJ...", enabled: true };
-if (!window.ZMZAM_SUPABASE) {
-  window.ZMZAM_SUPABASE = {
-    url: "https://qfijakgpnnnefxnjsiaj.supabase.co",
-    anonKey: "sb_publishable_kCM_bOyVtN9wxI10TL2mNA_MB2YsZHE",
-    enabled: false
-  };
+import "./src/js/clear-site-state.js";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+let supabaseClient = null;
+let supabaseConfigurationError = "";
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  supabaseConfigurationError = "أضف VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY إلى إعدادات البيئة.";
+} else {
+  try {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  } catch (error) {
+    console.error("Supabase configuration is invalid.", error);
+    supabaseConfigurationError = "إعدادات Supabase غير صالحة. تحقق من رابط المشروع والمفتاح العام.";
+  }
 }
 
-if (
-  !window.ZMZAM_SUPABASE.url ||
-  !window.ZMZAM_SUPABASE.anonKey ||
-  window.ZMZAM_SUPABASE.url.includes("YOUR_") ||
-  window.ZMZAM_SUPABASE.anonKey.includes("YOUR_")
-) {
-  window.ZMZAM_SUPABASE.enabled = false;
-}
+export { supabaseClient, supabaseConfigurationError };

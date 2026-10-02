@@ -1,4 +1,5 @@
-import "./supabase-config.js";
+import { supabaseClient, supabaseConfigurationError } from "./supabase-config.js";
+import { escapeHtml, normalizeDigits, safeImageUrl } from "./src/js/safe-dom.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
 const BULK_WHATSAPP_NUMBER = "201024311053";
@@ -32,103 +33,93 @@ const EGYPT_GOVERNORATES = [
   "جنوب سيناء",
 ];
 
-const supabaseUrl = window.ZMZAM_SUPABASE?.url || "";
-const supabaseAnonKey = window.ZMZAM_SUPABASE?.anonKey || "";
-console.log("Supabase URL configured:", Boolean(supabaseUrl));
-console.log("Supabase key configured:", Boolean(supabaseAnonKey));
-
-let supabaseClient = null;
-
-try {
-  if (supabaseUrl && supabaseAnonKey && window.supabase) {
-    supabaseClient = window.supabase.createClient(
-      supabaseUrl,
-      supabaseAnonKey
-    );
-  } else {
-    console.error(
-      "Supabase is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
-    );
-  }
-} catch (error) {
-  console.error("Supabase client initialization failed:", error);
-}
-
 function normalizeProduct(row) {
+  const validCategories = new Set(["boards", "boxes", "cupcakes", "packaging"]);
+  const validTypes = new Set(["goldboard", "silverboard", "box", "cup", "ribbon"]);
+  const category = validCategories.has(row.category) ? row.category : "boxes";
+  const inferredType =
+    category === "boards" ? "goldboard" :
+    category === "cupcakes" ? "cup" :
+    category === "packaging" ? "ribbon" : "box";
+  const requestedType = row.type || inferredType;
+
   return {
     id: Number(row.id ?? 0),
-    name: row.name || "",
-    category: row.category || "boxes",
-    price: Number(row.price || 0),
-    old: Number(row.old_price || row.old || 0),
-    tag: row.tag || "",
-    meta: row.meta || "",
-    rating: Number(row.rating || 4.8),
+    name: String(row.name || ""),
+    category,
+    price: Number.isFinite(Number(row.price)) ? Number(row.price) : 0,
+    old: Number.isFinite(Number(row.old_price ?? row.old)) ? Number(row.old_price ?? row.old) : 0,
+    tag: String(row.tag || ""),
+    meta: String(row.meta || ""),
+    rating: Number.isFinite(Number(row.rating)) ? Number(row.rating) : 4.8,
     specs: row.specs || {},
-    image: row.image || row.image_url || row.photo || "",
-    type:
-      row.type ||
-      (row.category === "boards"
-        ? "goldboard"
-        : row.category === "cupcakes"
-        ? "cup"
-        : row.category === "packaging"
-        ? "ribbon"
-        : "box"),
+    image: String(row.image || row.image_url || row.photo || ""),
+    type: validTypes.has(requestedType) ? requestedType : inferredType,
   };
 }
 
 let products = [];
 let productsLoading = true;
+let productsLoadError = false;
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) {
-    console.error("Supabase client is not available.");
+    productsLoadError = true;
+    console.error(supabaseConfigurationError);
     return [];
   }
 
   try {
     const { data, error } = await supabaseClient
       .from("products")
-      .select("*")
+      .select("id,name,category,price,old_price,tag,meta,image,type")
       .order("id", { ascending: true });
 
     if (error) {
       console.error("Supabase load failed:", error.message);
+      productsLoadError = true;
       return [];
     }
 
-    console.log(`Loaded ${data?.length || 0} products from Supabase.`);
-
+    productsLoadError = false;
     return (data || []).map(normalizeProduct);
   } catch (error) {
     console.error("Supabase critical error:", error);
+    productsLoadError = true;
     return [];
   }
 }
 
 async function syncProductsWithSupabase() {
+  const cartToggle = $("#cartToggle");
+  if (cartToggle) cartToggle.disabled = true;
   products = [];
   productsLoading = true;
+  productsLoadError = false;
   renderProducts();
-  renderCart();
 
   if (!supabaseClient) {
-    console.error(
-      "Supabase is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
-    );
-
+    productsLoadError = true;
+    console.error(supabaseConfigurationError);
     productsLoading = false;
     renderProducts();
-    renderCart();
     return;
   }
 
   products = await loadProductsFromSupabase();
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  state.cart = state.cart.flatMap(({ product, quantity }) => {
+    const currentProduct = productsById.get(Number(product?.id));
+    return currentProduct && Number.isInteger(quantity) && quantity > 0
+      ? [{ product: currentProduct, quantity }]
+      : [];
+  });
+  persistCart();
   productsLoading = false;
 
   renderProducts();
   renderCart();
+  if (cartToggle) cartToggle.disabled = false;
 }
 
 const getStoredCart = () => {
@@ -138,8 +129,17 @@ const getStoredCart = () => {
 
   try {
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry) =>
+          entry &&
+          Number.isFinite(Number(entry.product?.id)) &&
+          Number.isInteger(entry.quantity) &&
+          entry.quantity > 0 &&
+          entry.quantity <= 99
+        )
+      : [];
   } catch (error) {
+    console.error("تعذرت قراءة السلة المحفوظة؛ سيتم فتح سلة فارغة.", error);
     return [];
   }
 };
@@ -165,19 +165,25 @@ const categoryLabel = {
 };
 
 const persistCart = () =>
-  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
+  localStorage.setItem(
+    CART_STORAGE_KEY,
+    JSON.stringify(state.cart.map(({ product, quantity }) => ({
+      product: { id: product.id },
+      quantity,
+    })))
+  );
 
 function productArt(product) {
-  let image = product.image;
+  let image = safeImageUrl(product.image);
 
   if (!image && product.type === "box") {
     image = product.name.toLowerCase().includes("beige")
-      ? "/assets/cake-box-beige.png"
-      : "/assets/cake-box-white.png";
+      ? `${import.meta.env.BASE_URL}assets/cake-box-beige.png`
+      : `${import.meta.env.BASE_URL}assets/cake-box-white.png`;
   }
 
   if (image) {
-    return `<img src="${image}" alt="${product.name}" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
+    return `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
   }
 
   if (
@@ -219,7 +225,7 @@ function filteredProducts() {
   }
 
   if (state.sort === "new") {
-    result.sort((a, b) => a.id - b.id);
+    result.sort((a, b) => b.id - a.id);
   }
 
   return result;
@@ -259,7 +265,9 @@ function renderProducts() {
       `عرض ${visible.length} من ${result.length} ${itemLabel}`;
   }
 
-  grid.innerHTML = visible.length
+  grid.innerHTML = productsLoadError
+    ? '<div class="empty-cart product-load-error" role="alert">تعذر تحميل المنتجات حالياً. تحقق من الاتصال ثم أعد المحاولة.<br /><button class="btn btn-primary retry-products" type="button">إعادة المحاولة</button></div>'
+    : visible.length
     ? visible
         .map(
           (product) => `
@@ -267,7 +275,7 @@ function renderProducts() {
       <div class="product-image ${product.category}">
         ${
           product.tag
-            ? `<span class="product-badge">${product.tag}</span>`
+            ? `<span class="product-badge">${escapeHtml(product.tag)}</span>`
             : ""
         }
 
@@ -283,10 +291,10 @@ function renderProducts() {
       </div>
 
       <div class="product-info">
-        <h3>${product.name}</h3>
+        <h3>${escapeHtml(product.name)}</h3>
 
         <div class="product-meta">
-          ${product.meta}
+          ${escapeHtml(product.meta)}
         </div>
 
         <div class="product-row">
@@ -303,7 +311,7 @@ function renderProducts() {
           <button
             class="add-to-cart"
             data-id="${product.id}"
-            aria-label="إضافة ${product.name} للسلة"
+            aria-label="إضافة ${escapeHtml(product.name)} للسلة"
           >
             ＋
           </button>
@@ -312,6 +320,8 @@ function renderProducts() {
     </article>`
         )
         .join("")
+    : products.length === 0
+    ? '<div class="empty-cart" style="grid-column:1/-1">لا توجد منتجات متاحة حالياً.</div>'
     : `
       <div class="empty-cart" style="grid-column:1/-1">
         لم نجد منتجات مطابقة لبحثك. جرّب كلمة أخرى.
@@ -320,7 +330,7 @@ function renderProducts() {
 
   if (loadMore) {
     loadMore.style.display =
-      state.visible < result.length ? "block" : "none";
+      !productsLoadError && state.visible < result.length ? "block" : "none";
 
     loadMore.textContent =
       state.visible < result.length
@@ -381,8 +391,8 @@ function renderCart() {
         </div>
 
         <div>
-          <h4>${product.name}</h4>
-          <small>${product.meta}</small>
+          <h4>${escapeHtml(product.name)}</h4>
+          <small>${escapeHtml(product.meta)}</small>
 
           <div class="cart-controls">
             <button data-action="decrease" data-id="${product.id}">
@@ -500,6 +510,11 @@ function addToCart(id) {
 $("#productGrid")?.addEventListener(
   "click",
   (event) => {
+    if (event.target.closest(".retry-products")) {
+      syncProductsWithSupabase();
+      return;
+    }
+
     const button = event.target.closest(
       ".add-to-cart"
     );
@@ -538,10 +553,10 @@ $("#productGrid")?.addEventListener(
               ${categoryLabel[product.category] || "منتج"}
             </span>
 
-            <h2>${product.name}</h2>
+            <h2>${escapeHtml(product.name)}</h2>
 
             <div class="product-meta">
-              ${product.meta}
+              ${escapeHtml(product.meta)}
             </div>
 
             <p>
@@ -603,8 +618,8 @@ $("#modalContent")?.addEventListener(
       picker.querySelector(".bulk-product-selected").innerHTML = `
         <span class="bulk-product-thumb">${productArt(selectedProduct)}</span>
         <span class="bulk-product-copy">
-          <strong>${selectedProduct.name}</strong>
-          <small>${selectedProduct.meta || categoryLabel[selectedProduct.category] || "منتج"}</small>
+          <strong>${escapeHtml(selectedProduct.name)}</strong>
+          <small>${escapeHtml(selectedProduct.meta || categoryLabel[selectedProduct.category] || "منتج")}</small>
         </span>
       `;
       picker.querySelector(".bulk-product-toggle").setAttribute("aria-expanded", "false");
@@ -659,7 +674,7 @@ $("#modalContent")?.addEventListener(
     );
 
     if (phoneInput) {
-      phoneInput.value = phoneInput.value.replace(/\D/g, "").slice(0, 11);
+      phoneInput.value = normalizeDigits(phoneInput.value).replace(/\D/g, "").slice(0, 11);
     }
   }
 );
@@ -678,7 +693,9 @@ $("#modalContent")?.addEventListener(
       (item) => item.id === productId
     );
     const quantity = Number(form.quantity.value) || 1;
-    const phone = form.elements.phone.value;
+    const phone = normalizeDigits(form.elements.phone.value).replace(/\D/g, "");
+    const firstName = form.elements.firstName.value.trim();
+    const lastName = form.elements.lastName.value.trim();
 
     if (!product) {
       toast("الرجاء اختيار منتج صحيح");
@@ -691,10 +708,15 @@ $("#modalContent")?.addEventListener(
       return;
     }
 
+    if (!firstName || !lastName) {
+      toast("يرجى إدخال الاسم الأول واسم العائلة");
+      return;
+    }
+
     const message = [
       "طلب تسعير بالجملة من موقع زمزم",
       "",
-      `الاسم: ${form.elements.firstName.value} ${form.elements.lastName.value}`,
+      `الاسم: ${firstName} ${lastName}`,
       `الهاتف: ${phone}`,
       `المحافظة: ${form.elements.governorate.value}`,
       `المنتج: ${product.name}`,
@@ -716,8 +738,8 @@ function openBulkQuoteModal() {
             `<button type="button" class="bulk-product-option" role="option" aria-selected="false" data-id="${product.id}">
               <span class="bulk-product-thumb">${productArt(product)}</span>
               <span class="bulk-product-copy">
-                <strong>${product.name}</strong>
-                <small>${product.meta || categoryLabel[product.category] || "منتج"}</small>
+                <strong>${escapeHtml(product.name)}</strong>
+                <small>${escapeHtml(product.meta || categoryLabel[product.category] || "منتج")}</small>
               </span>
               <span class="bulk-product-price">${money(product.price)}</span>
             </button>`

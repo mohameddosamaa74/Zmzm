@@ -1,31 +1,49 @@
+import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
+import { escapeHtml, normalizeDigits, safeImageUrl } from "./safe-dom.js";
+
 const CART_STORAGE_KEY = "zmzm-cart";
 const WHATSAPP_NUMBER = "201024311053";
+const PRODUCT_FIELDS = "id,name,category,price,image,type";
+let cart = [];
+let productsReady = false;
+
 const money = (value) => `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 
-function getCart() {
-  const saved = localStorage.getItem(CART_STORAGE_KEY);
-  if (!saved) return [];
-
+function readStoredCart() {
   try {
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+    const value = localStorage.getItem(CART_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((item) =>
+      Number.isFinite(Number(item?.product?.id)) &&
+      Number.isInteger(item.quantity) &&
+      item.quantity > 0 &&
+      item.quantity <= 99
+    );
   } catch (error) {
+    console.error("تعذرت قراءة السلة.", error);
     return [];
   }
 }
 
 function getTotals(items) {
-  const subtotal = items.reduce((sum, entry) => sum + Number(entry.product.price) * Number(entry.quantity), 0);
+  const subtotal = items.reduce((sum, entry) => sum + entry.product.price * entry.quantity, 0);
   const shipping = subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
-  const total = subtotal + shipping;
-  return { subtotal, shipping, total };
+  return { subtotal, shipping, total: subtotal + shipping };
 }
 
-function renderSummary() {
-  const items = getCart();
+function renderSummary(message = "") {
   const container = document.getElementById("checkoutItems");
+  const submitButton = document.querySelector("#checkoutForm button[type='submit']");
+  if (submitButton) submitButton.disabled = !productsReady || cart.length === 0;
 
-  if (!items.length) {
+  if (message) {
+    container.innerHTML = `<div class="empty-cart" role="alert">${escapeHtml(message)}</div>`;
+    return;
+  }
+
+  if (!cart.length) {
     container.innerHTML = '<div class="empty-cart">السلة فارغة حالياً. عد إلى المتجر لإضافة منتجات.</div>';
     document.getElementById("checkoutSubtotal").textContent = "٠ ج.م";
     document.getElementById("checkoutShipping").textContent = "—";
@@ -33,67 +51,94 @@ function renderSummary() {
     return;
   }
 
-  const { subtotal, shipping, total } = getTotals(items);
+  const { subtotal, shipping, total } = getTotals(cart);
+  container.innerHTML = cart.map(({ product, quantity }) => {
+    const image = safeImageUrl(product.image);
+    const thumb = image
+      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" decoding="async" />`
+      : product.type === "box"
+        ? `<img src="${import.meta.env.BASE_URL}assets/cake-box-white.png" alt="${escapeHtml(product.name)}" decoding="async" />`
+        : "S";
 
-  container.innerHTML = items.map(({ product, quantity }) => `
-    <div class="checkout-item">
-      <div class="checkout-thumb ${product.image || (product.type === "box" ? "has-image" : "")}">
-        ${product.image
-          ? `<img src="${product.image}" alt="${product.name}" />`
-          : (product.type === "box"
-              ? `<img src="${product.name.toLowerCase().includes("beige") ? "/assets/cake-box-beige.png" : "/assets/cake-box-white.png"}" alt="${product.name}" />`
-              : "S")}
+    return `
+      <div class="checkout-item">
+        <div class="checkout-thumb ${image || product.type === "box" ? "has-image" : ""}">${thumb}</div>
+        <div>
+          <h3>${escapeHtml(product.name)}</h3>
+          <span class="qty">الكمية: ${quantity}</span>
         </div>
-      <div>
-        <h3>${product.name}</h3>
-        <span class="qty">الكمية: ${quantity}</span>
+        <strong>${money(product.price * quantity)}</strong>
       </div>
-      <strong>${money(product.price * quantity)}</strong>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   document.getElementById("checkoutSubtotal").textContent = money(subtotal);
   document.getElementById("checkoutShipping").textContent = shipping ? money(shipping) : "مجاني";
   document.getElementById("checkoutTotal").textContent = money(total);
 }
 
-function buildWhatsAppMessage(formData) {
-  const items = getCart();
-  const { subtotal, shipping, total } = getTotals(items);
-  const messageLines = [
-    "طلب جديد من موقع زمزم",
-    "",
-    `الاسم: ${formData.firstName} ${formData.lastName}`,
-    `الهاتف: ${formData.phone}`,
-    `المحافظة: ${formData.governorate}`,
-    `المدينة: ${formData.city}`,
-    `العنوان: ${formData.address}`,
-    `المبنى: ${formData.building || "-"}`,
-    `الطابق: ${formData.floor || "-"}`,
-    `الشقة: ${formData.apartment || "-"}`,
-    `ملاحظات: ${formData.notes || "-"}`,
-    "",
-    "المنتجات:",
-    ...items.map(({ product, quantity }) => `- ${product.name} × ${quantity} — ${money(product.price * quantity)}`),
-    "",
-    `المجموع الفرعي: ${money(subtotal)}`,
-    `التوصيل: ${shipping ? money(shipping) : "مجاني"}`,
-    `الإجمالي: ${money(total)}`
-  ];
+async function loadCurrentProducts() {
+  const storedCart = readStoredCart();
+  if (!storedCart.length) {
+    cart = [];
+    productsReady = true;
+    renderSummary();
+    return;
+  }
 
-  return messageLines.join("\n");
+  if (!supabaseClient) {
+    productsReady = false;
+    renderSummary(supabaseConfigurationError);
+    return;
+  }
+
+  try {
+    const productIds = [...new Set(storedCart.map((item) => Number(item.product.id)))];
+    const { data, error } = await supabaseClient
+      .from("products")
+      .select(PRODUCT_FIELDS)
+      .in("id", productIds);
+    if (error) throw error;
+
+    const products = new Map((data || []).map((product) => [
+      Number(product.id),
+      {
+        id: Number(product.id),
+        name: String(product.name || ""),
+        price: Number(product.price),
+        image: String(product.image || ""),
+        type: String(product.type || ""),
+      },
+    ]));
+
+    cart = storedCart.flatMap(({ product, quantity }) => {
+      const currentProduct = products.get(Number(product.id));
+      return currentProduct && Number.isFinite(currentProduct.price) && currentProduct.price >= 0
+        ? [{ product: currentProduct, quantity }]
+        : [];
+    });
+
+    if (cart.length !== storedCart.length) {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    }
+
+    productsReady = true;
+    renderSummary();
+  } catch (error) {
+    console.error("تعذر تحميل المنتجات الحالية لإتمام الطلب.", error);
+    productsReady = false;
+    renderSummary("تعذر التحقق من الأسعار حالياً. تحقق من الاتصال ثم أعد تحميل الصفحة.");
+  }
 }
 
 function normalizePhoneNumber(value) {
-  return String(value || "").replace(/\D/g, "");
+  return normalizeDigits(value).replace(/\D/g, "");
 }
 
 function initCheckout() {
-  renderSummary();
-
   const form = document.getElementById("checkoutForm");
   const phoneInput = form.querySelector('input[name="phone"]');
-
+  renderSummary("جارٍ التحقق من المنتجات والأسعار...");
   phoneInput.addEventListener("input", () => {
     phoneInput.value = normalizePhoneNumber(phoneInput.value).slice(0, 11);
   });
@@ -101,33 +146,58 @@ function initCheckout() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const items = getCart();
-    if (!items.length) {
-      alert("السلة فارغة، الرجاء إضافة منتجات أولاً.");
-      window.location.href = "index.html";
+    if (!productsReady || !cart.length) {
+      renderSummary(!productsReady
+        ? "تعذر التحقق من المنتجات والأسعار. حاول مرة أخرى لاحقاً."
+        : "السلة فارغة، الرجاء إضافة منتجات أولاً.");
       return;
     }
 
     const formData = Object.fromEntries(new FormData(form).entries());
-    const phone = normalizePhoneNumber(formData.phone);
+    formData.firstName = String(formData.firstName || "").trim();
+    formData.lastName = String(formData.lastName || "").trim();
+    formData.phone = normalizePhoneNumber(formData.phone);
 
-    if (!/^01[0125][0-9]{8}$/.test(phone)) {
+    if (!formData.firstName || !formData.lastName) {
+      alert("يرجى إدخال الاسم الأول واسم العائلة.");
+      return;
+    }
+
+    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) {
       alert("رقم الهاتف يجب أن يكون رقم هاتف مصري صحيحًا مكونًا من 11 رقمًا ويبدأ بـ 01.");
       phoneInput.focus();
       return;
     }
 
-    formData.phone = phone;
-
-    const message = buildWhatsAppMessage(formData);
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
-
-    window.open(whatsappUrl, "_blank");
+    const { subtotal, shipping, total } = getTotals(cart);
+    const messageLines = [
+      "طلب جديد من موقع زمزم",
+      "",
+      `الاسم: ${formData.firstName} ${formData.lastName}`,
+      `الهاتف: ${formData.phone}`,
+      `المحافظة: ${formData.governorate}`,
+      `المدينة: ${formData.city}`,
+      `العنوان: ${formData.address}`,
+      `المبنى: ${formData.building || "-"}`,
+      `الطابق: ${formData.floor || "-"}`,
+      `الشقة: ${formData.apartment || "-"}`,
+      `ملاحظات: ${formData.notes || "-"}`,
+      "",
+      "المنتجات:",
+      ...cart.map(({ product, quantity }) => `- ${product.name} × ${quantity} — ${money(product.price * quantity)}`),
+      "",
+      `المجموع الفرعي: ${money(subtotal)}`,
+      `التوصيل: ${shipping ? money(shipping) : "مجاني"}`,
+      `الإجمالي: ${money(total)}`,
+    ];
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(messageLines.join("\n"))}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     localStorage.removeItem(CART_STORAGE_KEY);
     alert("تم تجهيز الطلب بنجاح، جاري فتح واتساب لإرسال بيانات الطلب.");
     window.location.href = "index.html";
   });
+
+  loadCurrentProducts();
 }
 
 initCheckout();
