@@ -2,7 +2,6 @@
   "name": "zmzm",
   "version": "1.0.0",
   "description": "",
-  "main": ".local-supabase-config.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
