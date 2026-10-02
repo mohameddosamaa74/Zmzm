@@ -11,9 +11,33 @@
     <link rel="stylesheet" href="src/css/checkout.css" />
   </head>
   <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html" aria-label="زمزم، الصفحة الرئيسية">
+          <span class="logo-mark">Z</span>
+          <span>زمزم</span>
+        </a>
+        <nav class="main-nav" aria-label="التنقل الرئيسي">
+          <a href="index.html">الرئيسية</a>
+          <a href="index.html#shop">المتجر</a>
+          <a href="index.html#about">عن زمزم</a>
+          <a href="index.html#contact">تواصل معنا</a>
+        </nav>
+        <div class="header-actions">
+          <button class="header-icon cart-toggle" type="button" aria-label="السلة">
+            <span class="cart-icon" aria-hidden="true">
+              <span class="cart-basket"></span>
+              <span class="cart-handle"></span>
+            </span>
+            <b id="cartCount">0</b>
+          </button>
+        </div>
+      </div>
+    </header>
+
     <div class="checkout-shell">
       <header class="checkout-header">
-        <a href="index.html" class="back-link" aria-label="العودة إلى المتجر">← العودة</a>
+        <a href="index.html" class="back-link" aria-label="العودة إلى المتجر">العودة <span aria-hidden="true">→</span></a>
         <h1>إتمام الطلب</h1>
       </header>
 
@@ -37,17 +61,54 @@
 
               <label>
                 رقم الهاتف
-                <input name="phone" type="tel" placeholder="9665xxxxxxxx" required />
-              </label>
-
-              <label>
-                البريد الإلكتروني
-                <input name="email" type="email" placeholder="example@mail.com" />
+                <input
+                  name="phone"
+                  type="tel"
+                  inputmode="numeric"
+                  pattern="01[0125][0-9]{8}"
+                  maxlength="11"
+                  minlength="11"
+                  placeholder="01012345678"
+                  title="يرجى إدخال رقم هاتف مصري صالح مكون من 11 رقمًا يبدأ بـ 01"
+                  required
+                />
               </label>
 
               <label>
                 المحافظة
-                <input name="governorate" type="text" placeholder="الجيزة" required />
+                <div class="select-wrap">
+                  <select name="governorate" required>
+                    <option value="">اختر المحافظة</option>
+                    <option value="الإسكندرية">الإسكندرية</option>
+                    <option value="الإسماعيلية">الإسماعيلية</option>
+                    <option value="الأقصر">الأقصر</option>
+                    <option value="البحيرة">البحيرة</option>
+                    <option value="بني سويف">بني سويف</option>
+                    <option value="بورسعيد">بورسعيد</option>
+                    <option value="الجيزة">الجيزة</option>
+                    <option value="الدقهلية">الدقهلية</option>
+                    <option value="جنوب سيناء">جنوب سيناء</option>
+                    <option value="دمياط">دمياط</option>
+                    <option value="سوهاج">سوهاج</option>
+                    <option value="السويس">السويس</option>
+                    <option value="الشرقية">الشرقية</option>
+                    <option value="شمال سيناء">شمال سيناء</option>
+                    <option value="الغربية">الغربية</option>
+                    <option value="الفيوم">الفيوم</option>
+                    <option value="القاهرة">القاهرة</option>
+                    <option value="القليوبية">القليوبية</option>
+                    <option value="قنا">قنا</option>
+                    <option value="كفر الشيخ">كفر الشيخ</option>
+                    <option value="مطروح">مطروح</option>
+                    <option value="المنيا">المنيا</option>
+                    <option value="المنوفية">المنوفية</option>
+                    <option value="الوادي الجديد">الوادي الجديد</option>
+                    <option value="أسوان">أسوان</option>
+                    <option value="أسيوط">أسيوط</option>
+                    <option value="حلوان">حلوان</option>
+                    <option value="رأس البر">رأس البر</option>
+                  </select>
+                </div>
               </label>
 
               <label>
@@ -62,17 +123,17 @@
 
               <label>
                 المبنى
-                <input name="building" type="text" placeholder="اسم المبنى / رقم المبنى" />
+                <input name="building" type="text" placeholder="اسم المبنى / رقم المبنى" required />
               </label>
 
               <label>
                 الطابق
-                <input name="floor" type="text" placeholder="المستوى" />
+                <input name="floor" type="text" placeholder="المستوى" required />
               </label>
 
               <label>
                 الشقة
-                <input name="apartment" type="text" placeholder="رقم الشقة" />
+                <input name="apartment" type="text" placeholder="رقم الشقة" required />
               </label>
 
               <label class="full">

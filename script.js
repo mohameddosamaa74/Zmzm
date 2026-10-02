@@ -1,4 +1,5 @@
 const CART_STORAGE_KEY = "zmzm-cart";
+const BULK_WHATSAPP_NUMBER = "201024311053";
 
 const supabaseUrl = window.ZMZAM_SUPABASE?.url || "";
 const supabaseAnonKey = window.ZMZAM_SUPABASE?.anonKey || "";
@@ -525,6 +526,46 @@ $("#productGrid")?.addEventListener(
 $("#modalContent")?.addEventListener(
   "click",
   (event) => {
+    const pickerToggle = event.target.closest(".bulk-product-toggle");
+    const picker = event.target.closest(".bulk-product-picker");
+
+    if (pickerToggle) {
+      const list = picker?.querySelector(".bulk-product-options");
+      const isExpanded = pickerToggle.getAttribute("aria-expanded") === "true";
+
+      pickerToggle.setAttribute("aria-expanded", String(!isExpanded));
+      list?.classList.toggle("open", !isExpanded);
+      return;
+    }
+
+    const productOption = event.target.closest(".bulk-product-option");
+
+    if (productOption) {
+      const form = productOption.closest("#bulkQuoteForm");
+      const picker = productOption.closest(".bulk-product-picker");
+      const selectedProduct = products.find(
+        (item) => item.id === Number(productOption.dataset.id)
+      );
+
+      if (!form || !picker || !selectedProduct) return;
+
+      form.elements.product.value = selectedProduct.id;
+      picker.querySelector(".bulk-product-selected").innerHTML = `
+        <span class="bulk-product-thumb">${productArt(selectedProduct)}</span>
+        <span class="bulk-product-copy">
+          <strong>${selectedProduct.name}</strong>
+          <small>${selectedProduct.meta || categoryLabel[selectedProduct.category] || "منتج"}</small>
+        </span>
+      `;
+      picker.querySelector(".bulk-product-toggle").setAttribute("aria-expanded", "false");
+      picker.querySelector(".bulk-product-options")?.classList.remove("open");
+
+      picker
+        .querySelectorAll(".bulk-product-option")
+        .forEach((option) => option.setAttribute("aria-selected", String(option === productOption)));
+      return;
+    }
+
     const button =
       event.target.closest(".modal-add");
 
@@ -542,6 +583,123 @@ $("#modalContent")?.addEventListener(
   }
 );
 
+$("#modalContent")?.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key !== "Escape") return;
+
+    const picker = event.target.closest(".bulk-product-picker");
+    const toggle = picker?.querySelector(".bulk-product-toggle");
+    const list = picker?.querySelector(".bulk-product-options");
+
+    if (toggle?.getAttribute("aria-expanded") === "true") {
+      toggle.setAttribute("aria-expanded", "false");
+      list?.classList.remove("open");
+      toggle.focus();
+      event.stopPropagation();
+    }
+  }
+);
+
+$("#modalContent")?.addEventListener(
+  "submit",
+  (event) => {
+    const form = event.target.closest("#bulkQuoteForm");
+
+    if (!form) return;
+
+    event.preventDefault();
+
+    const productId = Number(form.elements.product.value);
+    const product = products.find(
+      (item) => item.id === productId
+    );
+    const quantity = Number(form.quantity.value) || 1;
+
+    if (!product) {
+      toast("الرجاء اختيار منتج صحيح");
+      return;
+    }
+
+    const message = [
+      "طلب تسعير بالجملة من موقع زمزم",
+      "",
+      `المنتج: ${product.name}`,
+      `الكمية: ${quantity}`,
+    ].join("\n");
+
+    const whatsappUrl = `https://wa.me/${BULK_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+    toast("تم تجهيز الطلب على الواتساب");
+    closeModal();
+  }
+);
+
+function openBulkQuoteModal() {
+  const options = products.length
+    ? products
+        .map(
+          (product) =>
+            `<button type="button" class="bulk-product-option" role="option" aria-selected="false" data-id="${product.id}">
+              <span class="bulk-product-thumb">${productArt(product)}</span>
+              <span class="bulk-product-copy">
+                <strong>${product.name}</strong>
+                <small>${product.meta || categoryLabel[product.category] || "منتج"}</small>
+              </span>
+              <span class="bulk-product-price">${money(product.price)}</span>
+            </button>`
+        )
+        .join("")
+    : '<p class="bulk-products-empty">لا توجد منتجات متاحة حالياً</p>';
+
+  $("#modalContent").innerHTML = `
+    <div class="bulk-quote-modal">
+      <span class="kicker">تسعير بالجملة</span>
+      <h2>اطلب عرض سعر</h2>
+
+      <form id="bulkQuoteForm" class="bulk-quote-form">
+        <label class="bulk-quote-field">
+          المنتج
+          <input type="hidden" name="product" value="" />
+          <div class="bulk-product-picker">
+            <button
+              type="button"
+              class="bulk-product-toggle"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="اختر المنتج"
+            >
+              <span class="bulk-product-selected">اختر المنتج من القائمة</span>
+              <span class="bulk-product-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="bulk-product-options" role="listbox" aria-label="المنتجات">
+              ${options}
+            </div>
+          </div>
+        </label>
+
+        <label class="bulk-quote-field">
+          الكمية
+          <input
+            name="quantity"
+            type="number"
+            min="1"
+            value="1"
+            required
+          />
+        </label>
+
+        <button type="submit" class="btn btn-primary wide bulk-quote-submit">
+          إتمام الطلب على الواتساب <span>←</span>
+        </button>
+      </form>
+    </div>
+  `;
+
+  $("#quickModal")?.classList.add("open");
+  $("#modalBackdrop")?.classList.add("visible");
+}
+
 function closeModal() {
   $("#quickModal")?.classList.remove("open");
 
@@ -553,6 +711,11 @@ function closeModal() {
 $("#modalClose")?.addEventListener(
   "click",
   closeModal
+);
+
+$(".bulk-quote-btn")?.addEventListener(
+  "click",
+  openBulkQuoteModal
 );
 
 $("#modalBackdrop")?.addEventListener(

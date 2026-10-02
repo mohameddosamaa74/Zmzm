@@ -65,7 +65,6 @@ function buildWhatsAppMessage(formData) {
     "",
     `الاسم: ${formData.firstName} ${formData.lastName}`,
     `الهاتف: ${formData.phone}`,
-    `البريد الإلكتروني: ${formData.email || "-"}`,
     `المحافظة: ${formData.governorate}`,
     `المدينة: ${formData.city}`,
     `العنوان: ${formData.address}`,
@@ -85,10 +84,20 @@ function buildWhatsAppMessage(formData) {
   return messageLines.join("\n");
 }
 
+function normalizePhoneNumber(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function initCheckout() {
   renderSummary();
 
   const form = document.getElementById("checkoutForm");
+  const phoneInput = form.querySelector('input[name="phone"]');
+
+  phoneInput.addEventListener("input", () => {
+    phoneInput.value = normalizePhoneNumber(phoneInput.value).slice(0, 11);
+  });
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -100,6 +109,16 @@ function initCheckout() {
     }
 
     const formData = Object.fromEntries(new FormData(form).entries());
+    const phone = normalizePhoneNumber(formData.phone);
+
+    if (!/^01[0125][0-9]{8}$/.test(phone)) {
+      alert("رقم الهاتف يجب أن يكون رقم هاتف مصري صحيحًا مكونًا من 11 رقمًا ويبدأ بـ 01.");
+      phoneInput.focus();
+      return;
+    }
+
+    formData.phone = phone;
+
     const message = buildWhatsAppMessage(formData);
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;

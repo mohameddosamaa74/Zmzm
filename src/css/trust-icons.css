@@ -1,0 +1,56 @@
+.trust-grid > div {
+  align-items: center;
+}
+
+.trust-icon {
+  position: relative;
+  isolation: isolate;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(23, 105, 212, 0.07);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f0f6ff, #e7f1ff);
+  color: var(--blue);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.trust-icon::after {
+  position: absolute;
+  z-index: -1;
+  inset: 5px;
+  border: 1px solid rgba(23, 105, 212, 0.08);
+  border-radius: 10px;
+  content: "";
+}
+
+.trust-icon svg {
+  width: 25px;
+  height: 25px;
+  overflow: visible;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  transition: transform 0.2s ease;
+}
+
+.trust-grid > div:hover .trust-icon {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(23, 105, 212, 0.12);
+}
+
+.trust-grid > div:hover .trust-icon svg {
+  transform: scale(1.06);
+}
+
+@media (max-width: 640px) {
+  .trust-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .trust-icon svg {
+    width: 23px;
+    height: 23px;
+  }
+}
