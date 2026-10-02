@@ -37,9 +37,13 @@ function renderSummary() {
 
   container.innerHTML = items.map(({ product, quantity }) => `
     <div class="checkout-item">
-      <div class="checkout-thumb ${product.image ? "has-image" : ""}">
-        ${product.image ? `<img src="${product.image}" alt="${product.name}" />` : "S"}
-      </div>
+      <div class="checkout-thumb ${product.image || (product.type === "box" ? "has-image" : "")}">
+        ${product.image
+          ? `<img src="${product.image}" alt="${product.name}" />`
+          : (product.type === "box"
+              ? `<img src="${product.name.toLowerCase().includes("beige") ? "/assets/cake-box-beige.png" : "/assets/cake-box-white.png"}" alt="${product.name}" />`
+              : "S")}
+        </div>
       <div>
         <h3>${product.name}</h3>
         <span class="qty">الكمية: ${quantity}</span>

@@ -124,8 +124,13 @@ const categoryLabel = { boards: "ألواح الكيك", boxes: "علب الكي
 const persistCart = () => localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
 
 function productArt(product) {
-  if (product.image) {
-    return `<img src="${product.image}" alt="${product.name}" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
+  let image = product.image;
+  if (!image && product.type === "box") {
+    image = product.name.toLowerCase().includes("beige") ? "/assets/cake-box-beige.png" : "/assets/cake-box-white.png";
+  }
+
+  if (image) {
+    return `<img src="${image}" alt="${product.name}" style="width:100%;height:100%;object-fit:contain;padding:10px;border-radius:18px;display:block;background:#fff;" />`;
   }
   if (product.type === "goldboard" || product.type === "silverboard") return `<div class="product-art ${product.type}"></div>`;
   if (product.type === "cup") return `<div class="product-art cup"><i></i><i></i><i></i></div>`;
