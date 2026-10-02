@@ -1,0 +1,32 @@
+.product-loading {
+  display: flex;
+  grid-column: 1 / -1;
+  min-height: 210px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.product-loading::before {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #dce9f8;
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: product-loading-spin 0.8s linear infinite;
+  content: "";
+}
+
+@keyframes product-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-loading::before {
+    animation-duration: 2.5s;
+  }
+}

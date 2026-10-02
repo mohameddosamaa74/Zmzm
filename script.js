@@ -1,3 +1,5 @@
+import "./supabase-config.js";
+
 const CART_STORAGE_KEY = "zmzm-cart";
 const BULK_WHATSAPP_NUMBER = "201024311053";
 
@@ -48,6 +50,7 @@ function normalizeProduct(row) {
 }
 
 let products = [];
+let productsLoading = true;
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) {
@@ -77,18 +80,23 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   products = [];
+  productsLoading = true;
+  renderProducts();
+  renderCart();
 
   if (!supabaseClient) {
     console.error(
       "Supabase is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
     );
 
+    productsLoading = false;
     renderProducts();
     renderCart();
     return;
   }
 
   products = await loadProductsFromSupabase();
+  productsLoading = false;
 
   renderProducts();
   renderCart();
@@ -193,11 +201,29 @@ function renderProducts() {
 
   if (!grid) return;
 
+  const countEl = $("#resultsCount");
+  const loadMore = $("#loadMore");
+
+  if (productsLoading) {
+    grid.setAttribute("aria-busy", "true");
+    grid.innerHTML = '<div class="product-loading" role="status">جارٍ تحميل المنتجات...</div>';
+
+    if (countEl) {
+      countEl.textContent = "جارٍ تحميل المنتجات...";
+    }
+
+    if (loadMore) {
+      loadMore.style.display = "none";
+    }
+
+    return;
+  }
+
+  grid.removeAttribute("aria-busy");
+
   const result = filteredProducts();
   const visible = result.slice(0, state.visible);
   const itemLabel = result.length === 1 ? "منتج" : "منتجات";
-
-  const countEl = $("#resultsCount");
 
   if (countEl) {
     countEl.textContent =
@@ -262,8 +288,6 @@ function renderProducts() {
         لم نجد منتجات مطابقة لبحثك. جرّب كلمة أخرى.
       </div>
     `;
-
-  const loadMore = $("#loadMore");
 
   if (loadMore) {
     loadMore.style.display =
@@ -442,8 +466,6 @@ function addToCart(id) {
   renderCart();
 
   toast("تمت إضافة المنتج إلى السلة");
-
-  openCart();
 }
 
 $("#productGrid")?.addEventListener(
@@ -456,6 +478,7 @@ $("#productGrid")?.addEventListener(
     if (button) {
       const id = Number(button.dataset.id);
       addToCart(id);
+      return;
     }
 
     if (event.target.closest(".wish")) {
@@ -839,16 +862,14 @@ $("#drawerOverlay")?.addEventListener(
 
 $("#checkoutBtn")?.addEventListener(
   "click",
-  () => {
+  (event) => {
     if (!state.cart.length) {
+      event.preventDefault();
       toast("أضف منتجاً إلى السلة أولاً");
       return;
     }
 
     persistCart();
-
-    window.location.href =
-      "checkout.html";
   }
 );
 

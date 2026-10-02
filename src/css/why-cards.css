@@ -33,6 +33,7 @@
   flex-direction: column;
   padding: 22px 24px 24px;
   border: 1px solid #e8eef6;
+  border-top: 3px solid var(--blue);
   border-radius: 18px;
   background: #fff;
   box-shadow: none;
@@ -41,16 +42,6 @@
     border-color 0.28s ease,
     background-color 0.28s ease,
     transform 0.32s cubic-bezier(0.2, 0.75, 0.25, 1);
-}
-
-.why-grid article.why-card::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 3px;
-  background: var(--blue);
-  content: "";
 }
 
 .why-grid article.why-card:nth-child(2) {

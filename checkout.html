@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="src/css/checkout.css" />
+    <link rel="stylesheet" href="src/css/cart-icon.css" />
   </head>
   <body>
     <header class="site-header">
@@ -25,10 +26,11 @@
         </nav>
         <div class="header-actions">
           <button class="header-icon cart-toggle" type="button" aria-label="السلة">
-            <span class="cart-icon" aria-hidden="true">
-              <span class="cart-basket"></span>
-              <span class="cart-handle"></span>
-            </span>
+            <svg class="cart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3.25 4.5h1.1c.58 0 1.08.4 1.21.97l2.32 10.42a2 2 0 0 0 1.95 1.57h8.33a2 2 0 0 0 1.94-1.51L22 8H6.1" />
+              <circle cx="10" cy="20" r="1.15" />
+              <circle cx="18" cy="20" r="1.15" />
+            </svg>
             <b id="cartCount">0</b>
           </button>
         </div>
@@ -171,6 +173,6 @@
       </main>
     </div>
 
-    <script src="src/js/checkout.js"></script>
+    <script type="module" src="src/js/checkout.js"></script>
   </body>
 </html>

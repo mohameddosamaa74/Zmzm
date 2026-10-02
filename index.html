@@ -10,9 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css?v=1.1" />
+    <link rel="stylesheet" href="src/css/product-loading.css" />
     <link rel="stylesheet" href="src/css/trust-icons.css" />
     <link rel="stylesheet" href="src/css/why-cards.css" />
     <link rel="stylesheet" href="src/css/bulk-quote.css" />
+    <link rel="stylesheet" href="src/css/cart-icon.css" />
   </head>
   <body>
     <header class="site-header">
@@ -24,10 +26,11 @@
         </nav>
         <div class="header-actions">
           <button class="header-icon cart-toggle" id="cartToggle" aria-label="السلة">
-            <span class="cart-icon" aria-hidden="true">
-              <span class="cart-basket"></span>
-              <span class="cart-handle"></span>
-            </span>
+            <svg class="cart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3.25 4.5h1.1c.58 0 1.08.4 1.21.97l2.32 10.42a2 2 0 0 0 1.95 1.57h8.33a2 2 0 0 0 1.94-1.51L22 8H6.1" />
+              <circle cx="10" cy="20" r="1.15" />
+              <circle cx="18" cy="20" r="1.15" />
+            </svg>
             <b id="cartCount">0</b>
           </button>
         </div>
@@ -103,10 +106,9 @@
       </div></section>
     </main>
 
-    <footer class="site-footer" id="contact"><div class="container footer-grid"><div class="footer-brand">    <a class="logo" href="#home"><span class="logo-mark">Z</span><span>زمزم<small>لمستلزمات الحلويات</small></span></a><p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p><div class="socials"><a href="#" aria-label="Facebook">f</a></div></div><div><h4>تسوق</h4><a href="#shop">الأكثر طلباً</a><a href="#shop">ألواح الكيك</a><a href="#shop">علب الكيك</a><a href="#shop">العروض</a></div>    <div><h4>تواصل معنا</h4><p>السويس، مصر</p><p>01550293339</p></div></div><div class="container footer-bottom"><span>© 2026 زمزم. جميع الحقوق محفوظة.</span><span>صنع بحب في مصر</span></div></footer>    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><button class="btn btn-primary wide" id="checkoutBtn">إتمام الطلب <span>←</span></button></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
+    <footer class="site-footer" id="contact"><div class="container footer-grid"><div class="footer-brand">    <a class="logo" href="#home"><span class="logo-mark">Z</span><span>زمزم<small>لمستلزمات الحلويات</small></span></a><p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p><div class="socials"><a href="#" aria-label="Facebook">f</a></div></div><div><h4>تسوق</h4><a href="#shop">الأكثر طلباً</a><a href="#shop">ألواح الكيك</a><a href="#shop">علب الكيك</a><a href="#shop">العروض</a></div>    <div><h4>تواصل معنا</h4><p>السويس، مصر</p><p>01550293339</p></div></div><div class="container footer-bottom"><span>© 2026 زمزم. جميع الحقوق محفوظة.</span></div></footer>    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
     <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><div id="modalContent"></div><button class="modal-close" id="modalClose">×</button></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script src="script.js?v=1.4"></script>  
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script type="module" src="script.js"></script>
 </body>
 </html>
