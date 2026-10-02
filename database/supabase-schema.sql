@@ -21,14 +21,14 @@ create table if not exists public.products (
 -- Seed default products for the storefront
 insert into public.products (id, name, category, price, old_price, tag, meta, rating, specs, image, type)
 values
-  (1, 'لوح كيك ذهبي دائري 20 سم', 'boards', 45, 55, 'الأكثر مبيعاً', 'ذهبي · 20 سم · 3 مم', 4.9, '{"diameter":"20 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
+  (1, 'قاعدة كيك ذهبية دائرية 20 سم', 'boards', 45, 55, 'الأكثر مبيعاً', 'ذهبي · 20 سم · 3 مم', 4.9, '{"diameter":"20 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
   (2, 'علبة كيك بيضاء 20×20×20', 'boxes', 85, null, 'جديد', 'كرتون غذائي · 20 سم', 4.8, '{"width":"20 سم","length":"20 سم","height":"20 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
-  (3, 'لوح كيك فضي دائري 25 سم', 'boards', 55, null, '', 'فضي · 25 سم · 3 مم', 4.7, '{"diameter":"25 سم","thickness":"3 مم","shape":"دائري","color":"فضي","quantity":"1 قطعة"}', null, 'silverboard'),
+  (3, 'قاعدة كيك فضية دائرية 25 سم', 'boards', 55, null, '', 'فضي · 25 سم · 3 مم', 4.7, '{"diameter":"25 سم","thickness":"3 مم","shape":"دائري","color":"فضي","quantity":"1 قطعة"}', null, 'silverboard'),
   (4, 'علبة كب كيك — 6 قطع', 'cupcakes', 62, 75, 'عرض', '6 قطع · نافذة شفافة', 4.9, '{"pieces":"6 قطع","material":"كرتون","window":"شفاف","color":"أبيض","quantity":"1 علبة"}', null, 'cup'),
   (5, 'علبة كيك بيضاء 25×25×25', 'boxes', 105, null, '', 'كرتون غذائي · 25 سم', 4.8, '{"width":"25 سم","length":"25 سم","height":"25 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
   (6, 'شريط ساتان أزرق — 10 متر', 'packaging', 38, null, 'جديد', 'أزرق ملكي · 10 متر', 4.6, '{"length":"10 متر","material":"ساتان","color":"أزرق","quantity":"1 لفافة"}', null, 'ribbon'),
   (7, 'علبة كب كيك — 12 قطعة', 'cupcakes', 88, null, '', '12 قطعة · نافذة شفافة', 4.8, '{"pieces":"12 قطعة","material":"كرتون","window":"شفاف","color":"أبيض","quantity":"1 علبة"}', null, 'cup'),
-  (8, 'لوح كيك ذهبي دائري 30 سم', 'boards', 75, null, '', 'ذهبي · 30 سم · 3 مم', 4.9, '{"diameter":"30 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
+  (8, 'قاعدة كيك ذهبية دائرية 30 سم', 'boards', 75, null, '', 'ذهبي · 30 سم · 3 مم', 4.9, '{"diameter":"30 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
   (9, 'علبة كيك طويلة 30 سم', 'boxes', 130, null, 'جديد', 'طويلة · 30×30×20 سم', 4.7, '{"width":"30 سم","length":"30 سم","height":"20 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
   (10, 'مجموعة ملصقات سُكّر', 'packaging', 25, null, '', '36 ملصقاً · دائري', 4.6, '{"quantity":"36 ملصقاً","type":"ملصقات","color":"متعدد","material":"ورق"}', null, 'ribbon')
 on conflict (id) do nothing;

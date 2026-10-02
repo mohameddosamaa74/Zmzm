@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>لوحة إدارة زمزم</title>
-    <meta name="description" content="لوحة إدارة منتجات زمزم لإدارة العلب والألواح والتغليف." />
+    <meta name="description" content="لوحة إدارة منتجات زمزم لإدارة العلب وقواعد الكيك والتغليف." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -26,8 +26,8 @@
 
         <form id="loginForm">
           <label>
-            البريد الإلكتروني
-            <input id="email" type="email" autocomplete="username" required />
+            اسم المستخدم
+            <input id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="255" required />
           </label>
           <label>
             كلمة المرور
@@ -78,7 +78,7 @@
             <strong id="totalProducts">0</strong>
           </article>
           <article class="stat-card">
-            <span>ألواح الكيك</span>
+            <span>قواعد كيك</span>
             <strong id="boardsCount">0</strong>
           </article>
           <article class="stat-card">
@@ -109,7 +109,7 @@
                 <label>
                   الفئة
                   <select id="category" name="category" required>
-                    <option value="boards">ألواح الكيك</option>
+                    <option value="boards">قواعد كيك</option>
                     <option value="boxes">علب الكيك</option>
                     <option value="cupcakes">كب كيك</option>
                     <option value="packaging">تغليف</option>

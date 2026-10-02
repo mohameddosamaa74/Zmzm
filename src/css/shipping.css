@@ -1,0 +1,11 @@
+.delivery-note {
+  display: block;
+  margin: 9px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.totals .delivery-note {
+  padding: 0;
+}

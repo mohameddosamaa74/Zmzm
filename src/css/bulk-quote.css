@@ -93,6 +93,69 @@
 
 .bulk-product-picker {
   position: relative;
+  min-width: 0;
+}
+
+.bulk-quote-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bulk-quote-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.bulk-quote-item-controls {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.bulk-quote-item-controls .bulk-quote-field {
+  width: 112px;
+}
+
+.bulk-remove-item,
+.bulk-add-item {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bulk-remove-item {
+  padding: 0 12px;
+  color: #b42318;
+}
+
+.bulk-add-item {
+  align-self: flex-start;
+  padding: 0 16px;
+  border-color: #cbdcf3;
+  color: var(--blue);
+}
+
+.bulk-remove-item:hover,
+.bulk-add-item:hover:not(:disabled) {
+  background: #f3f7ff;
+}
+
+.bulk-add-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .bulk-product-toggle {
@@ -186,6 +249,11 @@
   border-color: #dce9fb;
   background: #f3f7ff;
   outline: none;
+}
+
+.bulk-product-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .bulk-product-thumb {
@@ -285,6 +353,19 @@
   .bulk-quote-contact-grid {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .bulk-quote-item {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-quote-item-controls {
+    justify-content: space-between;
+  }
+
+  .bulk-quote-item-controls .bulk-quote-field {
+    flex: 1;
+    width: auto;
   }
 
   .bulk-product-price {

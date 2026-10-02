@@ -1,5 +1,6 @@
 import { supabaseClient, supabaseConfigurationError } from "./supabase-config.js";
 import { escapeHtml, normalizeDigits, safeImageUrl } from "./src/js/safe-dom.js";
+import { DELIVERY_TIME_NOTE, getShippingFee } from "./src/js/shipping.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
 const BULK_WHATSAPP_NUMBER = "201024311053";
@@ -158,7 +159,7 @@ const money = (value) =>
   `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 
 const categoryLabel = {
-  boards: "ألواح الكيك",
+  boards: "قواعد كيك",
   boxes: "علب الكيك",
   cupcakes: "كب كيك",
   packaging: "تغليف",
@@ -360,8 +361,7 @@ function renderCart() {
     0
   );
 
-  const shipping =
-    subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
+  const shipping = getShippingFee(subtotal);
 
   const cartCount = $("#cartCount");
 
@@ -444,7 +444,9 @@ function renderCart() {
   const shippingEl = $("#shipping");
 
   if (shippingEl) {
-    shippingEl.textContent = shipping
+    shippingEl.textContent = shipping === null
+      ? "يُحدد حسب المحافظة"
+      : shipping
       ? money(shipping)
       : subtotal
       ? "مجاني"
@@ -454,8 +456,13 @@ function renderCart() {
   const totalEl = $("#total");
 
   if (totalEl) {
-    totalEl.textContent = money(subtotal + shipping);
+    totalEl.textContent = shipping === null
+      ? "يُحدد عند إتمام الطلب"
+      : money(subtotal + shipping);
   }
+
+  const deliveryNote = $("#cartDeliveryNote");
+  if (deliveryNote) deliveryNote.textContent = DELIVERY_TIME_NOTE;
 }
 
 function toast(message) {
@@ -471,14 +478,50 @@ function toast(message) {
   }, 2300);
 }
 
+const scrollLocks = new Set();
+let lockedScrollPosition = 0;
+
+function setPageScrollLock(owner, locked) {
+  if (locked) {
+    if (scrollLocks.has(owner)) return;
+    scrollLocks.add(owner);
+    if (scrollLocks.size > 1) return;
+
+    lockedScrollPosition = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${lockedScrollPosition}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.classList.add("overlay-scroll-locked");
+    return;
+  }
+
+  scrollLocks.delete(owner);
+  if (scrollLocks.size || !document.body.classList.contains("overlay-scroll-locked")) return;
+
+  document.body.classList.remove("overlay-scroll-locked");
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  const scrollBehavior = document.documentElement.style.scrollBehavior;
+  document.documentElement.style.scrollBehavior = "auto";
+  window.scrollTo(0, lockedScrollPosition);
+  requestAnimationFrame(() => {
+    document.documentElement.style.scrollBehavior = scrollBehavior;
+  });
+}
+
 function openCart() {
   $("#cartDrawer")?.classList.add("open");
   $("#drawerOverlay")?.classList.add("visible");
+  setPageScrollLock("cart", true);
 }
 
 function closeCart() {
   $("#cartDrawer")?.classList.remove("open");
   $("#drawerOverlay")?.classList.remove("visible");
+  setPageScrollLock("cart", false);
 }
 
 function addToCart(id) {
@@ -580,6 +623,7 @@ $("#productGrid")?.addEventListener(
       `;
 
       $("#quickModal")?.classList.add("open");
+      setPageScrollLock("modal", true);
 
       $("#modalBackdrop")?.classList.add(
         "visible"
@@ -614,7 +658,9 @@ $("#modalContent")?.addEventListener(
 
       if (!form || !picker || !selectedProduct) return;
 
-      form.elements.product.value = selectedProduct.id;
+      const quoteItem = productOption.closest(".bulk-quote-item");
+      if (!quoteItem) return;
+      quoteItem.dataset.productId = String(selectedProduct.id);
       picker.querySelector(".bulk-product-selected").innerHTML = `
         <span class="bulk-product-thumb">${productArt(selectedProduct)}</span>
         <span class="bulk-product-copy">
@@ -624,10 +670,30 @@ $("#modalContent")?.addEventListener(
       `;
       picker.querySelector(".bulk-product-toggle").setAttribute("aria-expanded", "false");
       picker.querySelector(".bulk-product-options")?.classList.remove("open");
+      updateBulkQuoteItems(form);
+      return;
+    }
 
-      picker
-        .querySelectorAll(".bulk-product-option")
-        .forEach((option) => option.setAttribute("aria-selected", String(option === productOption)));
+    if (event.target.closest(".bulk-add-item")) {
+      const form = event.target.closest("#bulkQuoteForm");
+      const itemsContainer = form?.querySelector(".bulk-quote-items");
+      if (!form || !itemsContainer) return;
+      itemsContainer.insertAdjacentHTML("beforeend", createBulkQuoteItem());
+      updateBulkQuoteItems(form);
+      itemsContainer.lastElementChild?.querySelector(".bulk-product-toggle")?.focus();
+      return;
+    }
+
+    if (event.target.closest(".bulk-remove-item")) {
+      const form = event.target.closest("#bulkQuoteForm");
+      const quoteItem = event.target.closest(".bulk-quote-item");
+      if (!form || !quoteItem) return;
+
+      quoteItem.remove();
+      if (!form.querySelector(".bulk-quote-item")) {
+        form.querySelector(".bulk-quote-items").innerHTML = createBulkQuoteItem();
+      }
+      updateBulkQuoteItems(form);
       return;
     }
 
@@ -637,13 +703,7 @@ $("#modalContent")?.addEventListener(
     if (button) {
       addToCart(Number(button.dataset.id));
 
-      $("#quickModal")?.classList.remove(
-        "open"
-      );
-
-      $("#modalBackdrop")?.classList.remove(
-        "visible"
-      );
+      closeModal();
     }
   }
 );
@@ -688,17 +748,18 @@ $("#modalContent")?.addEventListener(
 
     event.preventDefault();
 
-    const productId = Number(form.elements.product.value);
-    const product = products.find(
-      (item) => item.id === productId
-    );
-    const quantity = Number(form.quantity.value) || 1;
+    const quoteItems = [...form.querySelectorAll(".bulk-quote-item")].map((row) => ({
+      product: products.find((item) => item.id === Number(row.dataset.productId)),
+      quantity: Number(row.querySelector('[name="quantity"]').value),
+    }));
     const phone = normalizeDigits(form.elements.phone.value).replace(/\D/g, "");
     const firstName = form.elements.firstName.value.trim();
     const lastName = form.elements.lastName.value.trim();
 
-    if (!product) {
-      toast("الرجاء اختيار منتج صحيح");
+    if (!quoteItems.length || quoteItems.some(({ product, quantity }) =>
+      !product || !Number.isSafeInteger(quantity) || quantity < 1
+    )) {
+      toast("اختر كل المنتجات وأدخل كمية صحيحة لكل منتج");
       return;
     }
 
@@ -719,8 +780,10 @@ $("#modalContent")?.addEventListener(
       `الاسم: ${firstName} ${lastName}`,
       `الهاتف: ${phone}`,
       `المحافظة: ${form.elements.governorate.value}`,
-      `المنتج: ${product.name}`,
-      `الكمية: ${quantity}`,
+      "المنتجات والكميات:",
+      ...quoteItems.map(({ product, quantity }, index) =>
+        `${index + 1}. ${product.name} — الكمية: ${quantity}`
+      ),
     ].join("\n");
 
     const whatsappUrl = `https://wa.me/${BULK_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
@@ -730,11 +793,16 @@ $("#modalContent")?.addEventListener(
   }
 );
 
-function openBulkQuoteModal() {
-  const options = products.length
-    ? products
-        .map(
-          (product) =>
+function createBulkQuoteItem() {
+  return `
+    <div class="bulk-quote-item" data-product-id="">
+      <div class="bulk-product-picker">
+        <button type="button" class="bulk-product-toggle" aria-haspopup="listbox" aria-expanded="false" aria-label="اختر المنتج">
+          <span class="bulk-product-selected">اختر المنتج من القائمة</span>
+          <span class="bulk-product-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="bulk-product-options" role="listbox" aria-label="المنتجات">
+          ${products.map((product) =>
             `<button type="button" class="bulk-product-option" role="option" aria-selected="false" data-id="${product.id}">
               <span class="bulk-product-thumb">${productArt(product)}</span>
               <span class="bulk-product-copy">
@@ -743,9 +811,54 @@ function openBulkQuoteModal() {
               </span>
               <span class="bulk-product-price">${money(product.price)}</span>
             </button>`
-        )
-        .join("")
+          ).join("")}
+        </div>
+      </div>
+      <div class="bulk-quote-item-controls">
+        <label class="bulk-quote-field">
+          الكمية
+          <input name="quantity" type="number" min="1" step="1" value="1" required />
+        </label>
+        <button type="button" class="bulk-remove-item" aria-label="حذف المنتج">حذف</button>
+      </div>
+    </div>
+  `;
+}
+
+function updateBulkQuoteItems(form) {
+  const rows = [...form.querySelectorAll(".bulk-quote-item")];
+  const selectedIds = new Set(
+    rows
+      .map((row) => row.dataset.productId)
+      .filter(Boolean)
+      .map(Number)
+  );
+
+  rows.forEach((row) => {
+    const productId = Number(row.dataset.productId);
+    row.querySelectorAll(".bulk-product-option").forEach((option) => {
+      const isSelected = Number(option.dataset.id) === productId;
+      const selectedElsewhere = selectedIds.has(Number(option.dataset.id)) && !isSelected;
+      option.disabled = selectedElsewhere;
+      option.setAttribute("aria-selected", String(isSelected));
+    });
+  });
+
+  const addButton = form.querySelector(".bulk-add-item");
+  if (addButton) {
+    const allProductsSelected = selectedIds.size >= products.length;
+    addButton.disabled = allProductsSelected;
+    addButton.setAttribute("aria-disabled", String(allProductsSelected));
+  }
+}
+
+function openBulkQuoteModal() {
+  const initialItem = products.length
+    ? createBulkQuoteItem()
     : '<p class="bulk-products-empty">لا توجد منتجات متاحة حالياً</p>';
+  const addItemButton = products.length
+    ? '<button type="button" class="bulk-add-item">＋ إضافة منتج آخر</button>'
+    : "";
 
   const governorateOptions = EGYPT_GOVERNORATES
     .map((governorate) => `<option value="${governorate}">${governorate}</option>`)
@@ -792,36 +905,10 @@ function openBulkQuoteModal() {
           </label>
         </div>
 
-        <label class="bulk-quote-field">
-          المنتج
-          <input type="hidden" name="product" value="" />
-          <div class="bulk-product-picker">
-            <button
-              type="button"
-              class="bulk-product-toggle"
-              aria-haspopup="listbox"
-              aria-expanded="false"
-              aria-label="اختر المنتج"
-            >
-              <span class="bulk-product-selected">اختر المنتج من القائمة</span>
-              <span class="bulk-product-chevron" aria-hidden="true"></span>
-            </button>
-            <div class="bulk-product-options" role="listbox" aria-label="المنتجات">
-              ${options}
-            </div>
-          </div>
-        </label>
-
-        <label class="bulk-quote-field">
-          الكمية
-          <input
-            name="quantity"
-            type="number"
-            min="1"
-            value="1"
-            required
-          />
-        </label>
+        <div class="bulk-quote-items" aria-label="المنتجات المطلوبة">
+          ${initialItem}
+        </div>
+        ${addItemButton}
 
         <button type="submit" class="btn btn-primary wide bulk-quote-submit">
           إتمام الطلب على الواتساب <span>←</span>
@@ -831,6 +918,7 @@ function openBulkQuoteModal() {
   `;
 
   $("#quickModal")?.classList.add("open");
+  setPageScrollLock("modal", true);
   $("#modalBackdrop")?.classList.add("visible");
 }
 
@@ -840,6 +928,7 @@ function closeModal() {
   $("#modalBackdrop")?.classList.remove(
     "visible"
   );
+  setPageScrollLock("modal", false);
 }
 
 $("#modalClose")?.addEventListener(

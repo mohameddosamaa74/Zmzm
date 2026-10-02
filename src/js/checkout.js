@@ -1,5 +1,6 @@
 import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
 import { escapeHtml, normalizeDigits, safeImageUrl } from "./safe-dom.js";
+import { DELIVERY_TIME_NOTE, getShippingFee } from "./shipping.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
 const WHATSAPP_NUMBER = "201024311053";
@@ -27,10 +28,10 @@ function readStoredCart() {
   }
 }
 
-function getTotals(items) {
+function getTotals(items, governorate = "") {
   const subtotal = items.reduce((sum, entry) => sum + entry.product.price * entry.quantity, 0);
-  const shipping = subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
-  return { subtotal, shipping, total: subtotal + shipping };
+  const shipping = getShippingFee(subtotal, governorate);
+  return { subtotal, shipping, total: shipping === null ? null : subtotal + shipping };
 }
 
 function renderSummary(message = "") {
@@ -51,7 +52,8 @@ function renderSummary(message = "") {
     return;
   }
 
-  const { subtotal, shipping, total } = getTotals(cart);
+  const governorate = document.querySelector('#checkoutForm [name="governorate"]')?.value || "";
+  const { subtotal, shipping, total } = getTotals(cart, governorate);
   container.innerHTML = cart.map(({ product, quantity }) => {
     const image = safeImageUrl(product.image);
     const thumb = image
@@ -73,8 +75,15 @@ function renderSummary(message = "") {
   }).join("");
 
   document.getElementById("checkoutSubtotal").textContent = money(subtotal);
-  document.getElementById("checkoutShipping").textContent = shipping ? money(shipping) : "مجاني";
-  document.getElementById("checkoutTotal").textContent = money(total);
+  document.getElementById("checkoutShipping").textContent = shipping === null
+    ? "اختر المحافظة لحساب الشحن"
+    : shipping
+      ? money(shipping)
+      : "مجاني";
+  document.getElementById("checkoutTotal").textContent = total === null
+    ? "اختر المحافظة"
+    : money(total);
+  document.getElementById("checkoutDeliveryNote").textContent = DELIVERY_TIME_NOTE;
 }
 
 async function loadCurrentProducts() {
@@ -138,6 +147,7 @@ function normalizePhoneNumber(value) {
 function initCheckout() {
   const form = document.getElementById("checkoutForm");
   const phoneInput = form.querySelector('input[name="phone"]');
+  form.querySelector('[name="governorate"]').addEventListener("change", () => renderSummary());
   renderSummary("جارٍ التحقق من المنتجات والأسعار...");
   phoneInput.addEventListener("input", () => {
     phoneInput.value = normalizePhoneNumber(phoneInput.value).slice(0, 11);
@@ -169,7 +179,12 @@ function initCheckout() {
       return;
     }
 
-    const { subtotal, shipping, total } = getTotals(cart);
+    const { subtotal, shipping, total } = getTotals(cart, formData.governorate);
+    if (shipping === null) {
+      alert("يرجى اختيار المحافظة لحساب تكلفة الشحن.");
+      form.querySelector('[name="governorate"]').focus();
+      return;
+    }
     const messageLines = [
       "طلب جديد من موقع زمزم",
       "",
@@ -189,6 +204,7 @@ function initCheckout() {
       `المجموع الفرعي: ${money(subtotal)}`,
       `التوصيل: ${shipping ? money(shipping) : "مجاني"}`,
       `الإجمالي: ${money(total)}`,
+      DELIVERY_TIME_NOTE,
     ];
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(messageLines.join("\n"))}`;
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");

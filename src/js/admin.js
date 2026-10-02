@@ -1,9 +1,10 @@
 import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
 import { escapeHtml, safeImageUrl } from "./safe-dom.js";
+import { usernameToAuthEmail } from "./admin-auth.js";
 
 const PRODUCT_FIELDS = "id,name,category,price,old_price,tag,meta,rating,specs,image,type";
 const categoryNames = {
-  boards: "ألواح الكيك",
+  boards: "قواعد كيك",
   boxes: "علب الكيك",
   cupcakes: "كب كيك",
   packaging: "تغليف",
@@ -282,7 +283,13 @@ loginForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const email = document.getElementById("email").value.trim();
+  let email;
+  try {
+    email = usernameToAuthEmail(document.getElementById("username").value);
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
   const password = document.getElementById("password").value;
   const submitButton = loginForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;

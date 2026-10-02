@@ -1,0 +1,41 @@
+body.overlay-scroll-locked {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.cart-drawer {
+  min-height: 0;
+}
+
+.cart-items {
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.drawer-head,
+.drawer-bottom {
+  flex-shrink: 0;
+}
+
+.modal {
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.checkout-shell {
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 640px) {
+  .modal {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+}
