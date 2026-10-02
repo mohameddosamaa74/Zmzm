@@ -1,12 +1,10 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Configuration
-// Vite replaces import.meta.env.VITE_... during the build process for Vercel.
-// window.ZMZAM_SUPABASE is used for local development via .local-supabase-config.js.
-const supabaseConfig = { 
-  url: window.ZMZAM_SUPABASE?.url || import.meta.env?.VITE_SUPABASE_URL || "", 
-  anonKey: window.ZMZAM_SUPABASE?.anonKey || import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
+// Configuration - Universal approach
+const supabaseConfig = window.ZMZAM_SUPABASE || { 
+  url: import.meta.env?.VITE_SUPABASE_URL || "", 
+  anonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
 };
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
@@ -20,6 +18,7 @@ try {
   console.error("Supabase client initialization failed:", e);
 }
 
+// Default products are now purely for local development if Supabase is not configured at all.
 const defaultProducts = [
   { id: 1, name: "لوح كيك ذهبي دائري 20 سم", category: "boards", price: 45, old: 55, tag: "الأكثر مبيعاً", type: "goldboard", meta: "ذهبي · 20 سم · 3 مم", rating: 4.9 },
   { id: 2, name: "علبة كيك بيضاء 20×20×20", category: "boxes", price: 85, tag: "جديد", type: "box", meta: "كرتون غذائي · 20 سم", rating: 4.8, image: "/assets/cake-box-white.png" },
@@ -70,19 +69,23 @@ async function syncProductsWithSupabase() {
   if (supabaseClient) {
     products = []; 
     const remoteProducts = await loadProductsFromSupabase();
-    if (remoteProducts) {
+    if (remoteProducts && remoteProducts.length > 0) {
       products = remoteProducts;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
     } else {
-      console.warn("Supabase active but no items found. Defaults disabled.");
+      // If configured but no items, we strictly avoid defaults on production.
+      const isProduction = window.location.hostname.includes("vercel.app");
+      if (!isProduction) {
+        products = defaultProducts;
+      } else {
+        products = [];
+      }
     }
   } else {
     const isProduction = window.location.hostname.includes("vercel.app");
     if (isProduction) {
-      console.error("CRITICAL: Supabase not configured on Vercel!");
       products = []; 
     } else {
-      console.warn("Local development: Using defaults.");
       products = defaultProducts;
     }
   }
