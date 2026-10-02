@@ -66,29 +66,23 @@ async function loadProductsFromSupabase() {
 }
 
 async function syncProductsWithSupabase() {
+  const isProduction = !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
+
   if (supabaseClient) {
-    products = []; 
+    products = [];
     const remoteProducts = await loadProductsFromSupabase();
     if (remoteProducts && remoteProducts.length > 0) {
       products = remoteProducts;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-    } else {
-      // If configured but no items, we strictly avoid defaults on production.
-      const isProduction = window.location.hostname.includes("vercel.app");
-      if (!isProduction) {
-        products = defaultProducts;
-      } else {
-        products = [];
-      }
-    }
-  } else {
-    const isProduction = window.location.hostname.includes("vercel.app");
-    if (isProduction) {
-      products = []; 
-    } else {
+    } else if (!isProduction) {
+      // Only use defaults if we're not in production and Supabase is empty
       products = defaultProducts;
     }
+  } else if (!isProduction) {
+    // Only use defaults if we're not in production and Supabase client is missing
+    products = defaultProducts;
   }
+
   renderProducts();
   renderCart();
 }
