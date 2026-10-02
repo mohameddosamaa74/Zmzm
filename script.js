@@ -1,32 +1,26 @@
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Supabase configuration - Vercel/Vite environment variables
-const supabaseConfig = window.ZMZAM_SUPABASE || {
-  url: "",
-  anonKey: "",
-};
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-const isSupabaseConfigured =
-  Boolean(supabaseConfig.url) &&
-  Boolean(supabaseConfig.anonKey) &&
-  !supabaseConfig.url.includes("YOUR_") &&
-  !supabaseConfig.anonKey.includes("YOUR_");
+console.log("Supabase URL configured:", Boolean(supabaseUrl));
+console.log("Supabase key configured:", Boolean(supabaseAnonKey));
 
 let supabaseClient = null;
 
 try {
-  if (isSupabaseConfigured && window.supabase) {
+  if (supabaseUrl && supabaseAnonKey && window.supabase) {
     supabaseClient = window.supabase.createClient(
-      supabaseConfig.url,
-      supabaseConfig.anonKey
+      supabaseUrl,
+      supabaseAnonKey
     );
   } else {
     console.error(
       "Supabase is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
     );
   }
-} catch (e) {
-  console.error("Supabase client initialization failed:", e);
+} catch (error) {
+  console.error("Supabase client initialization failed:", error);
 }
 
 function normalizeProduct(row) {
@@ -75,8 +69,8 @@ async function loadProductsFromSupabase() {
     console.log(`Loaded ${data?.length || 0} products from Supabase.`);
 
     return (data || []).map(normalizeProduct);
-  } catch (e) {
-    console.error("Supabase critical error:", e);
+  } catch (error) {
+    console.error("Supabase critical error:", error);
     return [];
   }
 }
@@ -102,6 +96,7 @@ async function syncProductsWithSupabase() {
 
 const getStoredCart = () => {
   const saved = localStorage.getItem(CART_STORAGE_KEY);
+
   if (!saved) return [];
 
   try {
@@ -195,6 +190,7 @@ function filteredProducts() {
 
 function renderProducts() {
   const grid = $("#productGrid");
+
   if (!grid) return;
 
   const result = filteredProducts();
@@ -219,8 +215,15 @@ function renderProducts() {
             ? `<span class="product-badge">${product.tag}</span>`
             : ""
         }
-        <button class="wish" aria-label="إضافة إلى المفضلة">♡</button>
-        <button class="quick-view" data-id="${product.id}">عرض سريع</button>
+
+        <button class="wish" aria-label="إضافة إلى المفضلة">
+          ♡
+        </button>
+
+        <button class="quick-view" data-id="${product.id}">
+          عرض سريع
+        </button>
+
         ${productArt(product)}
       </div>
 
@@ -234,6 +237,7 @@ function renderProducts() {
         <div class="product-row">
           <span class="price">
             ${money(product.price)}
+
             ${
               product.old
                 ? `<del class="old-price">${money(product.old)}</del>`
@@ -253,9 +257,11 @@ function renderProducts() {
     </article>`
         )
         .join("")
-    : `<div class="empty-cart" style="grid-column:1/-1">
+    : `
+      <div class="empty-cart" style="grid-column:1/-1">
         لم نجد منتجات مطابقة لبحثك. جرّب كلمة أخرى.
-      </div>`;
+      </div>
+    `;
 
   const loadMore = $("#loadMore");
 
@@ -314,6 +320,7 @@ function renderCart() {
           .map(
             ({ product, quantity }) => `
       <div class="cart-item">
+
         <div class="cart-thumb ${
           hasProductImage(product) ? "has-image" : ""
         }">
@@ -338,7 +345,9 @@ function renderCart() {
         </div>
 
         <div>
-          <strong>${money(product.price * quantity)}</strong>
+          <strong>
+            ${money(product.price * quantity)}
+          </strong>
 
           <button
             class="remove-item"
@@ -348,14 +357,19 @@ function renderCart() {
             حذف
           </button>
         </div>
+
       </div>`
           )
           .join("")
-      : `<div class="empty-cart">
+      : `
+        <div class="empty-cart">
           سلتك فارغة حالياً
           <br />
-          <small>أضف بعض القطع الجميلة لتبدأ.</small>
-        </div>`;
+          <small>
+            أضف بعض القطع الجميلة لتبدأ.
+          </small>
+        </div>
+      `;
   }
 
   const subtotalEl = $("#subtotal");
@@ -461,11 +475,13 @@ $("#productGrid")?.addEventListener(
 
       $("#modalContent").innerHTML = `
         <div class="modal-product">
+
           <div class="product-image ${product.category}">
             ${productArt(product)}
           </div>
 
           <div>
+
             <span class="kicker">
               ${categoryLabel[product.category] || "منتج"}
             </span>
@@ -493,11 +509,13 @@ $("#productGrid")?.addEventListener(
             >
               أضف للسلة <span>←</span>
             </button>
+
           </div>
         </div>
       `;
 
       $("#quickModal")?.classList.add("open");
+
       $("#modalBackdrop")?.classList.add(
         "visible"
       );
@@ -514,7 +532,9 @@ $("#modalContent")?.addEventListener(
     if (button) {
       addToCart(Number(button.dataset.id));
 
-      $("#quickModal")?.classList.remove("open");
+      $("#quickModal")?.classList.remove(
+        "open"
+      );
 
       $("#modalBackdrop")?.classList.remove(
         "visible"
@@ -702,6 +722,7 @@ $("#searchInput")?.addEventListener(
   (event) => {
     state.search = event.target.value;
     state.visible = 8;
+
     renderProducts();
   }
 );
@@ -709,7 +730,9 @@ $("#searchInput")?.addEventListener(
 $("#menuToggle")?.addEventListener(
   "click",
   () =>
-    $("#mainNav")?.classList.toggle("open")
+    $("#mainNav")?.classList.toggle(
+      "open"
+    )
 );
 
 const navLinks =
@@ -760,9 +783,10 @@ document
   .querySelectorAll("[data-scroll]")
   .forEach((button) => {
     button.addEventListener("click", () => {
-      const target = document.querySelector(
-        button.dataset.scroll
-      );
+      const target =
+        document.querySelector(
+          button.dataset.scroll
+        );
 
       if (target) {
         target.scrollIntoView();
