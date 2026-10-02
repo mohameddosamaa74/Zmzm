@@ -173,21 +173,27 @@ function renderProducts() {
   }
 }
 
+function hasProductImage(product) {
+  if (product.image) return true;
+  if (product.type === "box") return true;
+  return false;
+}
+
 function renderCart() {
   persistCart();
   const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = state.cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shipping = subtotal ? (subtotal >= 500 ? 0 : 35) : 0;
-  
+
   const cartCount = $("#cartCount"); if (cartCount) cartCount.textContent = count;
   const drawerCount = $("#drawerCount"); if (drawerCount) drawerCount.textContent = `${count} منتجات`;
-  
+
   const cartItems = $("#cartItems");
   if (cartItems) {
     cartItems.innerHTML = state.cart.length ? state.cart.map(({ product, quantity }) => `
-    <div class="cart-item"><div class="cart-thumb ${product.image ? "has-image" : ""}">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
+    <div class="cart-item"><div class="cart-thumb ${hasProductImage(product) ? "has-image" : ""}">${productArt(product)}</div><div><h4>${product.name}</h4><small>${product.meta}</small><div class="cart-controls"><button data-action="decrease" data-id="${product.id}">−</button><span>${quantity}</span><button data-action="increase" data-id="${product.id}">＋</button></div></div><div><strong>${money(product.price * quantity)}</strong><button class="remove-item" data-action="remove" data-id="${product.id}">حذف</button></div></div>`).join("") : `<div class="empty-cart">سلتك فارغة حالياً<br /><small>أضف بعض القطع الجميلة لتبدأ.</small></div>`;
   }
-  
+
   const subtotalEl = $("#subtotal"); if (subtotalEl) subtotalEl.textContent = money(subtotal);
   const shippingEl = $("#shipping"); if (shippingEl) shippingEl.textContent = shipping ? money(shipping) : (subtotal ? "مجاني" : "—");
   const totalEl = $("#total"); if (totalEl) totalEl.textContent = money(subtotal + shipping);
