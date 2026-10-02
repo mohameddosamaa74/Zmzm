@@ -1,20 +1,13 @@
 const STORAGE_KEY = "zmzm-products";
 const CART_STORAGE_KEY = "zmzm-cart";
 
-// Universal Configuration
-const supabaseConfig = window.ZMZAM_SUPABASE || { 
-  url: "", 
-  anonKey: "",
+// Configuration
+// Vite replaces import.meta.env.VITE_... during the build process for Vercel.
+// window.ZMZAM_SUPABASE is used for local development via .local-supabase-config.js.
+const supabaseConfig = { 
+  url: window.ZMZAM_SUPABASE?.url || import.meta.env?.VITE_SUPABASE_URL || "", 
+  anonKey: window.ZMZAM_SUPABASE?.anonKey || import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
 };
-
-try {
-  if (typeof import !== "undefined" && import.meta && import.meta.env) {
-    supabaseConfig.url = supabaseConfig.url || import.meta.env.VITE_SUPABASE_URL || "";
-    supabaseConfig.anonKey = supabaseConfig.anonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-  }
-} catch (e) {
-  console.warn("Env vars unavailable.");
-}
 
 const isSupabaseConfigured = supabaseConfig.url && supabaseConfig.anonKey && !supabaseConfig.url.includes("YOUR_");
 
@@ -24,7 +17,7 @@ try {
     supabaseClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
   }
 } catch (e) {
-  console.error("Supabase init failed:", e);
+  console.error("Supabase client initialization failed:", e);
 }
 
 const defaultProducts = [
@@ -75,16 +68,23 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   if (supabaseClient) {
+    products = []; 
     const remoteProducts = await loadProductsFromSupabase();
-    if (remoteProducts && remoteProducts.length > 0) {
+    if (remoteProducts) {
       products = remoteProducts;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
     } else {
-      console.warn("Using defaults due to empty Supabase.");
-      products = defaultProducts;
+      console.warn("Supabase active but no items found. Defaults disabled.");
     }
   } else {
-    products = defaultProducts;
+    const isProduction = window.location.hostname.includes("vercel.app");
+    if (isProduction) {
+      console.error("CRITICAL: Supabase not configured on Vercel!");
+      products = []; 
+    } else {
+      console.warn("Local development: Using defaults.");
+      products = defaultProducts;
+    }
   }
   renderProducts();
   renderCart();
