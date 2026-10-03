@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zmzm</title>
-    <meta name="description" content="زمزم" />
+    <title>زمزم | مستلزمات تغليف الكيك والحلويات</title>
+    <meta name="description" content="تسوق قواعد الكيك وعلب الحلويات ومستلزمات التغليف من زمزم. خامات موثوقة، مقاسات متعددة وتوصيل في مصر." />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231769d4'/><text x='50%' y='50%' dominant-baseline='central' text-anchor='middle' font-family='DM Sans, sans-serif' font-weight='bold' font-size='60' fill='white'>Z</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,10 +15,13 @@
     <link rel="stylesheet" href="src/css/why-cards.css" />
     <link rel="stylesheet" href="src/css/bulk-quote.css" />
     <link rel="stylesheet" href="src/css/cart-icon.css" />
+    <link rel="stylesheet" href="src/css/search-results.css" />
     <link rel="stylesheet" href="src/css/product-image.css" />
     <link rel="stylesheet" href="src/css/toast-interaction.css" />
     <link rel="stylesheet" href="src/css/overlay-scroll.css" />
     <link rel="stylesheet" href="src/css/shipping.css" />
+    <link rel="stylesheet" href="src/css/navigation-fit.css" />
+    <script type="module" src="src/js/home-refresh.js"></script>
   </head>
   <body>
     <header class="site-header">
@@ -29,6 +32,12 @@
           <a class="active" href="#home">الرئيسية</a><a href="#shop">المتجر</a><a href="#about">عن زمزم</a><a href="#contact">تواصل معنا</a>
         </nav>
         <div class="header-actions">
+          <button class="header-icon search-toggle" id="searchToggle" type="button" aria-label="فتح البحث" aria-expanded="false" aria-controls="searchPanel">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="10.8" cy="10.8" r="6.8" />
+              <path d="m16 16 4.5 4.5" />
+            </svg>
+          </button>
           <button class="header-icon cart-toggle" id="cartToggle" aria-label="السلة">
             <svg class="cart-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M3.25 4.5h1.1c.58 0 1.08.4 1.21.97l2.32 10.42a2 2 0 0 0 1.95 1.57h8.33a2 2 0 0 0 1.94-1.51L22 8H6.1" />
@@ -39,7 +48,7 @@
           </button>
         </div>
       </div>
-      <div class="search-panel" id="searchPanel"><div class="container search-inner"><input id="searchInput" type="search" placeholder="ابحث عن منتج أو كود المنتج..." aria-label="البحث عن منتج" /><button id="closeSearch" type="button">إغلاق</button></div></div>
+      <div class="search-panel" id="searchPanel"><div class="container search-inner"><div class="search-field"><input id="searchInput" type="search" placeholder="ابحث عن منتج أو كود المنتج..." aria-label="البحث عن منتج" aria-controls="searchResults" autocomplete="off" /><div class="search-results" id="searchResults" role="listbox" aria-label="نتائج البحث"></div></div><button id="closeSearch" type="button">إغلاق</button></div></div>
     </header>
 
     <main id="home">
@@ -47,7 +56,7 @@
         <div class="hero-copy"><span class="kicker">تغليف يصنع الفرق</span><h1><span style="display:block">كل ما تحتاجه الحلويات</span><em style="display:block">لتظهر بأجمل صورة.</em></h1><p>قواعد كيك، علب وتفاصيل صغيرة مختارة بعناية لتمنح كل قطعة حلوى حضوراً يستحقه.</p><div class="hero-actions"><a href="#shop" class="btn btn-primary">تسوق الآن <span>←</span></a></div></div>
         <div class="hero-art" aria-label="تشكيلة علب وقواعد كيك">
           <div class="art-glow"></div>
-          <img class="hero-reference-image" src="assets/zmzm-hero.png" alt="منتجات تغليف الكيك من زمزم" />
+          <img class="hero-reference-image" src="assets/zmzm-hero-optimized.png" alt="منتجات تغليف الكيك من زمزم" width="960" height="640" fetchpriority="high" decoding="async" />
         </div>
       </div></section>
       <section class="trust-strip"><div class="container trust-grid">
@@ -90,7 +99,7 @@
         </div>
       </div></section>
 
-      <section class="section products-section" id="shop"><div class="container"><div class="section-head"><div><span class="kicker">مختاراتنا</span><h2>الأكثر طلباً</h2></div><div class="filter-pills" id="filterBar"><button class="active" data-filter="all">الكل</button><button data-filter="boards">قواعد كيك</button><button data-filter="boxes">علب الكيك</button><button data-filter="cupcakes">كب كيك</button><button data-filter="packaging">تغليف</button></div></div><div class="catalog-toolbar"><span id="resultsCount">عرض ٨ منتجات</span><select id="sortSelect" aria-label="ترتيب المنتجات"><option value="popular">الأكثر طلباً</option><option value="low">السعر: الأقل أولاً</option><option value="high">السعر: الأعلى أولاً</option><option value="new">الأحدث</option></select></div><div class="product-grid" id="productGrid"></div><button class="load-more" id="loadMore">عرض المزيد</button></div></section>
+      <section class="section products-section" id="shop"><div class="container"><div class="section-head"><div><span class="kicker">مختاراتنا</span><h2>الأكثر طلباً</h2></div><div class="filter-pills" id="filterBar"><button class="active" data-filter="all">الكل</button><button data-filter="boards">قواعد كيك</button><button data-filter="boxes">علب الكيك</button><button data-filter="cupcakes">كب كيك</button><button data-filter="packaging">تغليف</button></div></div><div class="catalog-toolbar"><span id="resultsCount">عرض ٨ منتجات</span><select id="sortSelect" aria-label="ترتيب المنتجات"><option value="default">الترتيب الافتراضي</option><option value="low">السعر: الأقل أولاً</option><option value="high">السعر: الأعلى أولاً</option><option value="new">الأحدث</option></select></div><div class="product-grid" id="productGrid"></div><button class="load-more" id="loadMore">عرض المزيد</button></div></section>
       <section class="bulk-section"><div class="container bulk-grid"><div><span class="kicker">لأصحاب الأعمال</span><h2>تطلب بكميات كبيرة؟<br /><em>خلّينا نساعدك.</em></h2><p>أسعار خاصة، تجهيز منتظم وحلول تغليف مصممة لعلامتك التجارية.</p>      <button type="button" class="btn btn-primary bulk-quote-btn">اطلب تسعير الجملة <span>←</span></button></div></section>
       <section class="section why-section" id="about"><div class="container"><div class="section-head centered"><div><span class="kicker">لماذا زمزم؟</span><h2>نعتني بالتفاصيل الصغيرة</h2><p>لأن تجربة عميلك تبدأ قبل أول قضمة.</p></div></div>
         <div class="why-grid">
@@ -111,7 +120,7 @@
     </main>
 
     <footer class="site-footer" id="contact"><div class="container footer-grid"><div class="footer-brand">    <a class="logo" href="#home"><span class="logo-mark">Z</span><span>زمزم<small>لمستلزمات الحلويات</small></span></a><p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p></div><div><h4>تسوق</h4><a href="#shop">الأكثر طلباً</a><a href="#shop">قواعد كيك</a><a href="#shop">علب الكيك</a><a href="#shop">العروض</a></div>    <div><h4>تواصل معنا</h4><p>السويس، مصر</p><p>01550293339</p></div></div><div class="container footer-bottom"><span>© 2026 زمزم. جميع الحقوق محفوظة.</span></div></footer>    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><small id="cartDeliveryNote" class="delivery-note"></small><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
-    <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><div id="modalContent"></div><button class="modal-close" id="modalClose">×</button></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
+    <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق التفاصيل">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
 <script type="module" src="script.js"></script>
 </body>
 </html>

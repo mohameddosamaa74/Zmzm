@@ -3,6 +3,7 @@ import { escapeHtml, normalizeDigits, safeImageUrl } from "./safe-dom.js";
 import { DELIVERY_TIME_NOTE, getShippingFee } from "./shipping.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
+const CART_ITEM_LIMIT = 99;
 const WHATSAPP_NUMBER = "201024311053";
 const PRODUCT_FIELDS = "id,name,category,price,image,type";
 let cart = [];
@@ -20,7 +21,7 @@ function readStoredCart() {
       Number.isFinite(Number(item?.product?.id)) &&
       Number.isInteger(item.quantity) &&
       item.quantity > 0 &&
-      item.quantity <= 99
+      item.quantity <= CART_ITEM_LIMIT
     );
   } catch (error) {
     console.error("تعذرت قراءة السلة.", error);
@@ -153,7 +154,7 @@ function initCheckout() {
     phoneInput.value = normalizePhoneNumber(phoneInput.value).slice(0, 11);
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     if (!productsReady || !cart.length) {
@@ -207,10 +208,53 @@ function initCheckout() {
       DELIVERY_TIME_NOTE,
     ];
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(messageLines.join("\n"))}`;
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    const whatsappWindow = window.open("about:blank", "_blank");
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const { error } = await supabaseClient.from("orders").insert({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone: formData.phone,
+        governorate: formData.governorate,
+        city: formData.city,
+        address: formData.address,
+        building: formData.building,
+        floor: formData.floor,
+        apartment: formData.apartment,
+        notes: String(formData.notes || "").trim() || null,
+        items: cart.map(({ product, quantity }) => ({
+          product_id: product.id,
+          name: product.name,
+          unit_price: product.price,
+          quantity,
+        })),
+        subtotal,
+        shipping,
+        total,
+        status: "pending",
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("تعذر حفظ الطلب في Supabase.", error);
+      if (whatsappWindow) whatsappWindow.close();
+      alert("تعذر حفظ الطلب حالياً. لم يتم مسح السلة؛ حاول مرة أخرى بعد قليل.");
+      submitButton.disabled = false;
+      return;
+    }
+
     localStorage.removeItem(CART_STORAGE_KEY);
-    alert("تم تجهيز الطلب بنجاح، جاري فتح واتساب لإرسال بيانات الطلب.");
-    window.location.href = "index.html";
+    if (whatsappWindow) {
+      whatsappWindow.location.replace(whatsappUrl);
+      whatsappWindow.opener = null;
+      alert("تم حفظ الطلب، جاري فتح واتساب لإرسال بياناته.");
+      window.location.href = "index.html";
+      return;
+    }
+
+    alert("تم حفظ الطلب. تعذر فتح نافذة جديدة، سيتم فتح واتساب في الصفحة الحالية.");
+    window.location.href = whatsappUrl;
   });
 
   loadCurrentProducts();

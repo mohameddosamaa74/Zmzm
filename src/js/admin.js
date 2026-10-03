@@ -17,13 +17,26 @@ const formTitle = document.getElementById("formTitle");
 const loginForm = document.getElementById("loginForm");
 const authScreen = document.getElementById("authScreen");
 const adminShell = document.getElementById("adminShell");
+const menuToggle = document.getElementById("menuToggle");
+const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+const adminNavigation = document.getElementById("adminNavigation");
+const productDialog = document.getElementById("productDialog");
 const logoutBtn = document.getElementById("logoutBtn");
 const productImageInput = document.getElementById("productImage");
 const productImagePreview = document.getElementById("productImagePreview");
 const imagePreviewText = document.getElementById("imagePreviewText");
 const currentImageInput = document.getElementById("currentImage");
 let products = [];
+let orders = [];
 let isAdmin = false;
+const ORDER_STATUSES = {
+  pending: "جديد",
+  confirmed: "تم التأكيد",
+  processing: "قيد التجهيز",
+  shipped: "تم الشحن",
+  delivered: "تم التسليم",
+  cancelled: "ملغي",
+};
 
 function showToast(message) {
   toast.textContent = message;
@@ -55,6 +68,30 @@ function normalizeProduct(row) {
 function updateAuthUI() {
   authScreen.classList.toggle("hidden", isAdmin);
   adminShell.classList.toggle("hidden", !isAdmin);
+  setMenuOpen(false);
+}
+
+function setMenuOpen(isOpen) {
+  adminShell.classList.toggle("menu-open", isOpen);
+  menuToggle.setAttribute("aria-expanded", String(isOpen));
+  menuToggle.setAttribute("aria-label", isOpen ? "إغلاق قائمة التنقل" : "فتح قائمة التنقل");
+  adminNavigation.setAttribute("aria-hidden", String(!isOpen));
+  adminNavigation.inert = !isOpen;
+}
+
+function showAdminView(view) {
+  const views = {
+    dashboard: { element: document.getElementById("dashboardView"), title: "إدارة المنتجات" },
+    products: { element: document.getElementById("products"), title: "المنتجات" },
+    orders: { element: document.getElementById("orders"), title: "الطلبات" },
+  };
+  const selectedView = views[view] || views.dashboard;
+  for (const [name, item] of Object.entries(views)) {
+    item.element.classList.toggle("hidden", item !== selectedView);
+    adminNavigation.querySelector(`[href="#${name}"]`)?.classList.toggle("active", item === selectedView);
+  }
+  document.querySelector(".topbar h1").textContent = selectedView.title;
+  if (view === "orders") loadOrders();
 }
 
 function renderStats() {
@@ -112,6 +149,7 @@ async function loadProducts() {
 
 function resetForm() {
   productForm.reset();
+  if (productDialog.open) productDialog.close();
   document.getElementById("productId").value = "";
   currentImageInput.value = "";
   productImageInput.value = "";
@@ -119,6 +157,67 @@ function resetForm() {
   formTitle.textContent = "إضافة منتج";
   document.getElementById("saveProduct").textContent = "حفظ المنتج";
   document.getElementById("rating").value = "4.8";
+}
+
+function renderOrders() {
+  const rows = orders.map((order) => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemSummary = items.map((item) =>
+      `${escapeHtml(item.name)} × ${escapeHtml(item.quantity)} (${formatMoney(item.unit_price)})`
+    ).join("<br>");
+    const customerName = `${order.first_name} ${order.last_name}`.trim();
+    const createdAt = new Date(order.created_at);
+    const formattedDate = Number.isNaN(createdAt.getTime())
+      ? "—"
+      : createdAt.toLocaleString("ar-EG");
+
+    return `
+      <tr>
+        <td dir="ltr">${escapeHtml(String(order.id).slice(0, 8))}</td>
+        <td>${escapeHtml(customerName)}<br><small>${escapeHtml(order.address)}, ${escapeHtml(order.building)}, ${escapeHtml(order.floor)}, ${escapeHtml(order.apartment)}</small></td>
+        <td dir="ltr">${escapeHtml(order.phone)}</td>
+        <td>${escapeHtml(order.city)}، ${escapeHtml(order.governorate)}</td>
+        <td>${itemSummary || "—"}</td>
+        <td>${escapeHtml(order.notes || "—")}</td>
+        <td>${formatMoney(order.total)}</td>
+        <td>
+          <select class="order-status" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
+            ${Object.entries(ORDER_STATUSES).map(([value, label]) =>
+              `<option value="${value}" ${order.status === value ? "selected" : ""}>${label}</option>`
+            ).join("")}
+          </select>
+        </td>
+        <td>${escapeHtml(formattedDate)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  document.getElementById("ordersTableBody").innerHTML = rows;
+  document.getElementById("ordersEmpty").classList.toggle("hidden", orders.length > 0);
+}
+
+async function loadOrders() {
+  if (!supabaseClient) {
+    showToast(supabaseConfigurationError);
+    return;
+  }
+
+  const refreshButton = document.getElementById("refreshOrders");
+  refreshButton.disabled = true;
+  try {
+    const { data, error } = await supabaseClient
+      .from("orders")
+      .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,total,status")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    orders = data || [];
+    renderOrders();
+  } catch (error) {
+    console.error("تعذر تحميل الطلبات من Supabase.", error);
+    showToast("تعذر تحميل الطلبات. تأكد من تطبيق إعداد جدول الطلبات في Supabase.");
+  } finally {
+    refreshButton.disabled = false;
+  }
 }
 
 function fillForm(product) {
@@ -186,7 +285,7 @@ productTableBody.addEventListener("click", async (event) => {
 
   if (button.dataset.action === "edit") {
     fillForm(product);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    productDialog.showModal();
     return;
   }
 
@@ -274,7 +373,66 @@ productForm.addEventListener("submit", async (event) => {
   }
 });
 
-document.getElementById("cancelEdit").addEventListener("click", resetForm);
+document.getElementById("addProductButton").addEventListener("click", () => {
+  resetForm();
+  productDialog.showModal();
+});
+
+document.getElementById("closeProductDialog").addEventListener("click", resetForm);
+document.getElementById("cancelProductDialog").addEventListener("click", resetForm);
+
+productDialog.addEventListener("click", (event) => {
+  if (event.target === productDialog) resetForm();
+});
+
+productDialog.addEventListener("cancel", () => resetForm());
+
+document.getElementById("refreshOrders").addEventListener("click", loadOrders);
+
+document.getElementById("ordersTableBody").addEventListener("change", async (event) => {
+  const select = event.target.closest("select[data-order-id]");
+  if (!select) return;
+
+  const previousStatus = select.dataset.currentStatus;
+  select.disabled = true;
+  try {
+    const { error } = await supabaseClient
+      .from("orders")
+      .update({ status: select.value })
+      .eq("id", select.dataset.orderId);
+    if (error) throw error;
+    select.dataset.currentStatus = select.value;
+    const order = orders.find((item) => item.id === select.dataset.orderId);
+    if (order) order.status = select.value;
+    showToast("تم تحديث حالة الطلب");
+  } catch (error) {
+    console.error("تعذر تحديث حالة الطلب.", error);
+    select.value = previousStatus;
+    showToast("تعذر تحديث حالة الطلب. حاول مرة أخرى.");
+  } finally {
+    select.disabled = false;
+  }
+});
+
+menuToggle.addEventListener("click", () => {
+  setMenuOpen(menuToggle.getAttribute("aria-expanded") !== "true");
+});
+
+sidebarBackdrop.addEventListener("click", () => setMenuOpen(false));
+
+adminNavigation.addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  if (!link) return;
+if (link.hash) showAdminView(link.hash.slice(1));
+  setMenuOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && menuToggle.getAttribute("aria-expanded") === "true") {
+    setMenuOpen(false);
+    menuToggle.focus();
+  }
+});
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -306,6 +464,7 @@ loginForm.addEventListener("submit", async (event) => {
     isAdmin = true;
     updateAuthUI();
     await loadProducts();
+    showAdminView(location.hash.slice(1) || "products");
     loginForm.reset();
     showToast("تم تسجيل الدخول");
   } catch (error) {
@@ -350,7 +509,10 @@ async function initializeAdmin() {
     if (error) throw error;
     isAdmin = data.user?.app_metadata?.role === "admin";
     updateAuthUI();
-    if (isAdmin) await loadProducts();
+    if (isAdmin) {
+      await loadProducts();
+      showAdminView(location.hash.slice(1) || "products");
+    }
     resetForm();
   } catch (error) {
     console.error("تعذر التحقق من جلسة الإدارة.", error);

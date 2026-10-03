@@ -1,0 +1,43 @@
+#shop,
+#about,
+#contact {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 640px) {
+  .products-section .section-head {
+    display: grid;
+    gap: 18px;
+  }
+
+  .filter-pills {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-pills button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .why-section .why-grid article.why-card {
+    min-height: 0;
+    padding: 16px 18px;
+  }
+
+  .why-section .why-card-top {
+    margin-bottom: 8px;
+  }
+
+  .why-section .why-card-body {
+    flex: 0 1 auto;
+  }
+}
