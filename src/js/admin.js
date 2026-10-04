@@ -33,19 +33,23 @@ const currentImageInput = document.getElementById("currentImage");
 let products = [];
 let orders = [];
 let isAdmin = false;
+const ORDERS_PAGE_SIZE = 50;
+let ordersPage = 0;
+let ordersTotalCount = 0;
 const ORDER_STATUSES = {
   pending: "جديد",
+  confirmed: "تم التأكيد",
   processing: "قيد التجهيز",
   shipped: "تم الشحن",
+  delivered: "تم التسليم",
+  cancelled: "ملغي",
 };
 const ORDER_STATUS_MESSAGES = {
+  confirmed: "تم تأكيد طلبك.",
   processing: "بدأنا تجهيز طلبك.",
   shipped: "تم شحن طلبك، وهو في الطريق إليك.",
-};
-const LEGACY_ORDER_STATUS_LABELS = {
-  confirmed: "تم التأكيد (حالة سابقة)",
-  delivered: "تم التسليم (حالة سابقة)",
-  cancelled: "ملغي (حالة سابقة)",
+  delivered: "تم تسليم طلبك.",
+  cancelled: "تم إلغاء طلبك.",
 };
 
 function showToast(message) {
@@ -59,16 +63,16 @@ function formatMoney(value) {
 }
 
 function getOrderStatusLabel(status) {
-  return ORDER_STATUSES[status] || LEGACY_ORDER_STATUS_LABELS[status] || status || "—";
+  return ORDER_STATUSES[status] || status || "—";
 }
 
 function renderOrderStatusOptions(order) {
   const currentStatus = String(order.status || "");
-  const legacyOption = ORDER_STATUSES[currentStatus]
+  const unknownOption = ORDER_STATUSES[currentStatus]
     ? ""
-    : `<option value="${escapeHtml(currentStatus)}" selected disabled>${escapeHtml(LEGACY_ORDER_STATUS_LABELS[currentStatus] || "حالة غير معروفة")}</option>`;
+    : `<option value="${escapeHtml(currentStatus)}" selected disabled>حالة غير معروفة</option>`;
 
-  return `${legacyOption}${Object.entries(ORDER_STATUSES).map(([value, label]) =>
+  return `${unknownOption}${Object.entries(ORDER_STATUSES).map(([value, label]) =>
     `<option value="${value}" ${currentStatus === value ? "selected" : ""}>${label}</option>`
   ).join("")}`;
 }
@@ -116,7 +120,12 @@ function showAdminView(view) {
     adminNavigation.querySelector(`[href="#${name}"]`)?.classList.toggle("active", item === selectedView);
   }
   document.querySelector(".topbar h1").textContent = selectedView.title;
-  if (view === "orders" || view === "dashboard") loadOrders();
+  if (view === "dashboard") {
+    ordersPage = 0;
+    loadOrders({ page: 0 });
+  } else if (view === "orders") {
+    loadOrders({ page: ordersPage });
+  }
 }
 
 function renderStats() {
@@ -274,7 +283,22 @@ function renderQuickOrders() {
   document.getElementById("quickOrdersEmpty").classList.toggle("hidden", recentOrders.length > 0);
 }
 
-async function loadOrders({ announceNewOrders = false } = {}) {
+function renderOrdersPagination() {
+  const pagination = document.getElementById("ordersPagination");
+  const pageStatus = document.getElementById("ordersPageStatus");
+  const previousButton = document.getElementById("previousOrdersPage");
+  const nextButton = document.getElementById("nextOrdersPage");
+  if (!pagination || !pageStatus || !previousButton || !nextButton) return;
+
+  const firstOrder = ordersTotalCount ? ordersPage * ORDERS_PAGE_SIZE + 1 : 0;
+  const lastOrder = Math.min((ordersPage + 1) * ORDERS_PAGE_SIZE, ordersTotalCount);
+  pageStatus.textContent = `عرض ${firstOrder}–${lastOrder} من ${ordersTotalCount.toLocaleString("ar-EG")}`;
+  previousButton.disabled = ordersPage === 0;
+  nextButton.disabled = (ordersPage + 1) * ORDERS_PAGE_SIZE >= ordersTotalCount;
+  pagination.classList.toggle("hidden", ordersTotalCount <= ORDERS_PAGE_SIZE);
+}
+
+async function loadOrders({ announceNewOrders = false, page = ordersPage } = {}) {
   if (!supabaseClient) {
     showToast(supabaseConfigurationError);
     return;
@@ -288,15 +312,20 @@ async function loadOrders({ announceNewOrders = false } = {}) {
     button.disabled = true;
     button.classList.add("is-loading");
   }
+  ordersPage = Math.max(0, Math.floor(page));
   try {
     const existingOrderIds = new Set(orders.map((order) => String(order.id)));
-    const { data, error } = await supabaseClient
+    const { data, error, count } = await supabaseClient
       .from("orders")
-      .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,subtotal,shipping,total,status")
-      .order("created_at", { ascending: false });
+      .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,subtotal,shipping,total,status", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(ordersPage * ORDERS_PAGE_SIZE, (ordersPage + 1) * ORDERS_PAGE_SIZE - 1);
     if (error) throw error;
     orders = data || [];
+    ordersTotalCount = Number.isFinite(count) ? count : ordersTotalCount;
     renderOrders();
+    renderOrdersPagination();
     if (announceNewOrders) {
       const newOrdersCount = orders.filter((order) => !existingOrderIds.has(String(order.id))).length;
       showToast(newOrdersCount === 0
@@ -502,7 +531,7 @@ function renderOrderDetails(order) {
   const productsById = new Map(products.map((product) => [String(product.id), product]));
   const itemCards = items.map((item) => {
     const product = productsById.get(String(item.product_id));
-    const imageSource = String(item.image || product?.image || "").trim();
+    const imageSource = String(product?.image || "").trim();
     const imageUrl = imageSource ? safeImageUrl(imageSource) : "";
     const quantity = Number(item.quantity) || 0;
     const unitPrice = Number(item.unit_price) || 0;
@@ -569,8 +598,19 @@ orderDetailsDialog.addEventListener("click", (event) => {
 
 document.getElementById("viewAllOrders").addEventListener("click", (event) => {
   event.preventDefault();
+  ordersPage = 0;
   location.hash = "orders";
   showAdminView("orders");
+});
+
+document.getElementById("previousOrdersPage").addEventListener("click", () => {
+  if (ordersPage === 0) return;
+  loadOrders({ page: ordersPage - 1 });
+});
+
+document.getElementById("nextOrdersPage").addEventListener("click", () => {
+  if ((ordersPage + 1) * ORDERS_PAGE_SIZE >= ordersTotalCount) return;
+  loadOrders({ page: ordersPage + 1 });
 });
 
 function openStatusWhatsAppPrompt(order, status) {
@@ -634,7 +674,7 @@ document.addEventListener("change", async (event) => {
     if (error) throw error;
     order.status = nextStatus;
     renderOrders();
-    if (nextStatus === "processing" || nextStatus === "shipped") {
+    if (ORDER_STATUS_MESSAGES[nextStatus]) {
       openStatusWhatsAppPrompt(order, nextStatus);
     } else {
       showToast("تم تحديث حالة الطلب");

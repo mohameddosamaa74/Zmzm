@@ -667,6 +667,24 @@ button { cursor: pointer; }
   text-align: center;
 }
 
+.orders-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.orders-pagination span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.orders-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .orders-table {
   min-width: 1180px;
 }
@@ -711,6 +729,24 @@ button { cursor: pointer; }
   border-color: #9bd8b1;
   background-color: #e8f8ed;
   color: #17653a;
+}
+
+.order-status-confirmed {
+  border-color: #a8d9bd;
+  background-color: #edf9f1;
+  color: #24693d;
+}
+
+.order-status-delivered {
+  border-color: #9dd4c7;
+  background-color: #e9f8f4;
+  color: #176552;
+}
+
+.order-status-cancelled {
+  border-color: #efb8b8;
+  background-color: #fff0f0;
+  color: #9b3434;
 }
 
 .panel-head h2 {

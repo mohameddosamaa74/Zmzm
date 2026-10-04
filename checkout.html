@@ -55,12 +55,12 @@
             <div class="field-grid">
               <label>
                 الاسم الأول
-                <input name="firstName" type="text" placeholder="مثال: محمد" required />
+                <input name="firstName" type="text" maxlength="80" autocomplete="given-name" placeholder="مثال: محمد" required />
               </label>
 
               <label>
                 الاسم الأخير
-                <input name="lastName" type="text" placeholder="مثال: علي" required />
+                <input name="lastName" type="text" maxlength="80" autocomplete="family-name" placeholder="مثال: علي" required />
               </label>
 
               <label>
@@ -116,32 +116,32 @@
 
               <label>
                 المدينة / المنطقة
-                <input name="city" type="text" placeholder="الدقي" required />
+                <input name="city" type="text" maxlength="100" autocomplete="address-level2" placeholder="الدقي" required />
               </label>
 
               <label class="full">
                 عنوان الشارع
-                <input name="address" type="text" placeholder="شارع ..." required />
+                <input name="address" type="text" maxlength="250" autocomplete="street-address" placeholder="شارع ..." required />
               </label>
 
               <label>
                 المبنى
-                <input name="building" type="text" placeholder="اسم المبنى / رقم المبنى" required />
+                <input name="building" type="text" maxlength="50" placeholder="اسم المبنى / رقم المبنى" required />
               </label>
 
               <label>
                 الطابق
-                <input name="floor" type="text" placeholder="المستوى" required />
+                <input name="floor" type="text" maxlength="30" placeholder="المستوى" required />
               </label>
 
               <label>
                 الشقة
-                <input name="apartment" type="text" placeholder="رقم الشقة" required />
+                <input name="apartment" type="text" maxlength="30" placeholder="رقم الشقة" required />
               </label>
 
               <label class="full">
                 ملاحظات إضافية
-                <textarea name="notes" rows="3" placeholder="أي ملاحظات إضافية عن الطلب"></textarea>
+                <textarea name="notes" rows="3" maxlength="500" placeholder="أي ملاحظات إضافية عن الطلب"></textarea>
               </label>
             </div>
 
@@ -162,6 +162,10 @@
               <p id="mobileCheckoutDeliveryNote" class="delivery-note">مدة التوصيل من 2 إلى 5 أيام.</p>
             </div>
 
+            <label class="checkout-honeypot" aria-hidden="true">
+              الموقع الإلكتروني
+              <input name="website" type="text" tabindex="-1" autocomplete="off" />
+            </label>
             <button type="submit" class="submit-btn" disabled>إتمام الطلب عبر واتساب</button>
           </form>
         </section>

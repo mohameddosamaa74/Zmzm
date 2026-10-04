@@ -182,8 +182,8 @@ function productArt(product) {
 
   if (!image && product.type === "box") {
     image = product.name.toLowerCase().includes("beige")
-      ? `${import.meta.env.BASE_URL}assets/cake-box-beige.png`
-      : `${import.meta.env.BASE_URL}assets/cake-box-white.png`;
+      ? `${import.meta.env.BASE_URL}assets/cake-box-beige-v2.webp`
+      : `${import.meta.env.BASE_URL}assets/cake-box-white-v2.webp`;
   }
 
   if (image) {

@@ -8,6 +8,8 @@ const WHATSAPP_NUMBER = "201024311053";
 const PRODUCT_FIELDS = "id,name,category,price,image,type";
 let cart = [];
 let productsReady = false;
+let previousOrderFingerprint = "";
+let previousOrderIdempotencyKey = "";
 
 const money = (value) => `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 
@@ -71,7 +73,7 @@ function renderSummary(message = "") {
     const thumb = image
       ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" decoding="async" />`
       : product.type === "box"
-        ? `<img src="${import.meta.env.BASE_URL}assets/cake-box-white.png" alt="${escapeHtml(product.name)}" decoding="async" />`
+        ? `<img src="${import.meta.env.BASE_URL}assets/cake-box-white-v2.webp" alt="${escapeHtml(product.name)}" loading="lazy" decoding="async" />`
         : "S";
 
     return `
@@ -166,6 +168,17 @@ function normalizePhoneNumber(value) {
   return normalizeDigits(value).replace(/\D/g, "");
 }
 
+function getOrderIdempotencyKey(orderPayload) {
+  const fingerprint = JSON.stringify(orderPayload);
+  if (fingerprint === previousOrderFingerprint && previousOrderIdempotencyKey) {
+    return previousOrderIdempotencyKey;
+  }
+
+  previousOrderFingerprint = fingerprint;
+  previousOrderIdempotencyKey = crypto.randomUUID();
+  return previousOrderIdempotencyKey;
+}
+
 function initCheckout() {
   const form = document.getElementById("checkoutForm");
   const phoneInput = form.querySelector('input[name="phone"]');
@@ -201,72 +214,78 @@ function initCheckout() {
       return;
     }
 
-    const { subtotal, shipping, total } = getTotals(cart, formData.governorate);
+    const { shipping } = getTotals(cart, formData.governorate);
     if (shipping === null) {
       alert("يرجى اختيار المحافظة لحساب تكلفة الشحن.");
       form.querySelector('[name="governorate"]').focus();
       return;
     }
-    const messageLines = [
-      "طلب جديد من موقع زمزم",
-      "",
-      `الاسم: ${formData.firstName} ${formData.lastName}`,
-      `الهاتف: ${formData.phone}`,
-      `المحافظة: ${formData.governorate}`,
-      `المدينة: ${formData.city}`,
-      `العنوان: ${formData.address}`,
-      `المبنى: ${formData.building || "-"}`,
-      `الطابق: ${formData.floor || "-"}`,
-      `الشقة: ${formData.apartment || "-"}`,
-      `ملاحظات: ${formData.notes || "-"}`,
-      "",
-      "المنتجات:",
-      ...cart.map(({ product, quantity }) => `- ${product.name} × ${quantity} — ${money(product.price * quantity)}`),
-      "",
-      `المجموع الفرعي: ${money(subtotal)}`,
-      `التوصيل: ${shipping ? money(shipping) : "مجاني"}`,
-      `الإجمالي: ${money(total)}`,
-      DELIVERY_TIME_NOTE,
-    ];
-    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(messageLines.join("\n"))}`;
-    const whatsappWindow = window.open("about:blank", "_blank");
-
     const submitButton = form.querySelector('button[type="submit"]');
+    const orderPayload = {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      phone: formData.phone,
+      governorate: formData.governorate,
+      city: String(formData.city || "").trim(),
+      address: String(formData.address || "").trim(),
+      building: String(formData.building || "").trim(),
+      floor: String(formData.floor || "").trim(),
+      apartment: String(formData.apartment || "").trim(),
+      notes: String(formData.notes || "").trim(),
+      items: cart.map(({ product, quantity }) => ({ product_id: product.id, quantity })),
+      website: String(formData.website || ""),
+    };
+    const idempotencyKey = getOrderIdempotencyKey(orderPayload);
+    const whatsappWindow = window.open("about:blank", "_blank");
     submitButton.disabled = true;
+    let savedOrder;
     try {
-      const { error } = await supabaseClient.from("orders").insert({
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone,
-        governorate: formData.governorate,
-        city: formData.city,
-        address: formData.address,
-        building: formData.building,
-        floor: formData.floor,
-        apartment: formData.apartment,
-        notes: String(formData.notes || "").trim() || null,
-        items: cart.map(({ product, quantity }) => ({
-          product_id: product.id,
-          name: product.name,
-          unit_price: product.price,
-          quantity,
-          image: product.image,
-        })),
-        subtotal,
-        shipping,
-        total,
-        status: "pending",
+      const { data, error } = await supabaseClient.functions.invoke("create-order", {
+        body: { ...orderPayload, idempotency_key: idempotencyKey },
       });
       if (error) throw error;
+      if (data?.ignored) throw new Error("تعذر إرسال الطلب.");
+      savedOrder = data?.order;
+      if (!savedOrder || !Array.isArray(savedOrder.items) || !savedOrder.items.length) {
+        throw new Error("لم تصل تفاصيل الطلب المحفوظ.");
+      }
     } catch (error) {
-      console.error("تعذر حفظ الطلب في Supabase.", error);
+      console.error("تعذر حفظ الطلب.", error);
       if (whatsappWindow) whatsappWindow.close();
-      alert("تعذر حفظ الطلب حالياً. لم يتم مسح السلة؛ حاول مرة أخرى بعد قليل.");
+      const status = error?.context?.status || error?.status;
+      alert(status === 429
+        ? "تم إرسال طلبات كثيرة من هذا الاتصال. انتظر قليلاً ثم حاول مرة أخرى."
+        : "تعذر حفظ الطلب حالياً. لم يتم مسح السلة؛ حاول مرة أخرى بعد قليل.");
       submitButton.disabled = false;
       return;
     }
 
     localStorage.removeItem(CART_STORAGE_KEY);
+    const messageLines = [
+      "طلب جديد من موقع زمزم",
+      "",
+      `رقم الطلب: ${savedOrder.order_id}`,
+      `الاسم: ${formData.firstName} ${formData.lastName}`,
+      `الهاتف: ${formData.phone}`,
+      `المحافظة: ${formData.governorate}`,
+      `المدينة: ${orderPayload.city}`,
+      `العنوان: ${orderPayload.address}`,
+      `المبنى: ${orderPayload.building || "-"}`,
+      `الطابق: ${orderPayload.floor || "-"}`,
+      `الشقة: ${orderPayload.apartment || "-"}`,
+      `ملاحظات: ${orderPayload.notes || "-"}`,
+      "",
+      "المنتجات:",
+      ...savedOrder.items.map((item) =>
+        `- ${item.name} × ${item.quantity} — ${money(Number(item.unit_price) * Number(item.quantity))}`
+      ),
+      "",
+      `المجموع الفرعي: ${money(savedOrder.subtotal)}`,
+      `التوصيل: ${Number(savedOrder.shipping) ? money(savedOrder.shipping) : "مجاني"}`,
+      `الإجمالي: ${money(savedOrder.total)}`,
+      DELIVERY_TIME_NOTE,
+    ];
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(messageLines.join("\n"))}`;
     if (whatsappWindow) {
       whatsappWindow.location.replace(whatsappUrl);
       whatsappWindow.opener = null;

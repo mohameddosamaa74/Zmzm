@@ -1,8 +1,9 @@
--- Apply this migration to the Supabase project before using checkout order saving.
--- Visitors may create pending orders but cannot read them; only admins can read/update.
+-- Apply this migration, then database/order-security-migration.sql, before enabling checkout.
+-- Public clients submit orders through the validated create-order Edge Function.
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
+  idempotency_key uuid,
   first_name text not null,
   last_name text not null,
   phone text not null check (phone ~ '^01[0125][0-9]{8}$'),
@@ -23,7 +24,6 @@ create table if not exists public.orders (
 
 alter table public.orders enable row level security;
 revoke all on public.orders from public, anon, authenticated;
-grant insert on public.orders to anon, authenticated;
 grant select, update on public.orders to authenticated;
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 
@@ -39,12 +39,6 @@ begin
     execute format('drop policy %I on public.orders', policy_name);
   end loop;
 end $$;
-
-create policy "orders_visitor_insert"
-on public.orders
-for insert
-to anon, authenticated
-with check (status = 'pending');
 
 create policy "orders_admin_select"
 on public.orders
