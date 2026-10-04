@@ -421,9 +421,19 @@ button { cursor: pointer; }
   white-space: nowrap;
 }
 
-.orders-panel-actions .btn.is-loading::before {
+.orders-panel-head .btn.is-loading {
+  position: relative;
+  padding-inline: 26px 10px;
+}
+
+.orders-panel-head .btn.is-loading::before {
+  position: absolute;
+  inset-inline-start: 8px;
+  top: 50%;
   width: 13px;
   height: 13px;
+  box-sizing: border-box;
+  margin-top: -6.5px;
   border: 2px solid currentColor;
   border-left-color: transparent;
   border-radius: 50%;
@@ -1009,6 +1019,17 @@ td strong {
     gap: 6px;
   }
 
+  .orders-panel-head .btn.is-loading {
+    padding-inline: 18px 2px;
+  }
+
+  .orders-panel-head .btn.is-loading::before {
+    inset-inline-start: 6px;
+    width: 11px;
+    height: 11px;
+    margin-top: -5.5px;
+  }
+
   .orders-panel-actions .btn {
     min-height: 40px;
     padding: 8px 10px;
@@ -1037,6 +1058,17 @@ td strong {
     min-height: 36px;
     padding: 6px;
     font-size: 10px;
+  }
+
+  .orders-panel-head .btn.is-loading {
+    padding-inline: 14px 0;
+  }
+
+  .orders-panel-head .btn.is-loading::before {
+    inset-inline-start: 4px;
+    width: 9px;
+    height: 9px;
+    margin-top: -4.5px;
   }
 
   .topbar {
