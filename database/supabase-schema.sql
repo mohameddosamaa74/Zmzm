@@ -82,7 +82,7 @@ with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 -- Seed default products for the storefront
 insert into public.products (id, name, category, price, old_price, tag, meta, rating, specs, image, type)
 values
-  (1, 'قاعدة كيك ذهبية دائرية 20 سم', 'boards', 45, 55, 'الأكثر مبيعاً', 'ذهبي · 20 سم · 3 مم', 4.9, '{"diameter":"20 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
+  (1, 'قاعدة كيك ذهبية دائرية 20 سم', 'boards', 45, 55, null, 'ذهبي · 20 سم · 3 مم', 4.9, '{"diameter":"20 سم","thickness":"3 مم","shape":"دائري","color":"ذهبي","quantity":"1 قطعة"}', null, 'goldboard'),
   (2, 'علبة كيك بيضاء 20×20×20', 'boxes', 85, null, 'جديد', 'كرتون غذائي · 20 سم', 4.8, '{"width":"20 سم","length":"20 سم","height":"20 سم","material":"كرتون غذائي","color":"أبيض","quantity":"1 قطعة"}', null, 'box'),
   (3, 'قاعدة كيك فضية دائرية 25 سم', 'boards', 55, null, '', 'فضي · 25 سم · 3 مم', 4.7, '{"diameter":"25 سم","thickness":"3 مم","shape":"دائري","color":"فضي","quantity":"1 قطعة"}', null, 'silverboard'),
   (4, 'علبة كب كيك — 6 قطع', 'cupcakes', 62, 75, 'عرض', '6 قطع · نافذة شفافة', 4.9, '{"pieces":"6 قطع","material":"كرتون","window":"شفاف","color":"أبيض","quantity":"1 علبة"}', null, 'cup'),
@@ -176,3 +176,62 @@ create or replace view public.product_specs_view
 with (security_invoker = true) as
 select p.id, p.name, p.category, p.price, p.old_price, p.tag, p.meta, p.rating, p.specs, p.image
 from public.products p;
+
+-- Public product photos are stored separately from product metadata.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'zmzm-product-images',
+  'zmzm-product-images',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "zmzm_product_images_public_read" on storage.objects;
+create policy "zmzm_product_images_public_read"
+on storage.objects
+for select
+to anon, authenticated
+using (bucket_id = 'zmzm-product-images');
+
+drop policy if exists "zmzm_product_images_admin_insert" on storage.objects;
+create policy "zmzm_product_images_admin_insert"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'zmzm-product-images'
+  and (storage.foldername(name))[1] = 'products'
+  and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+);
+
+drop policy if exists "zmzm_product_images_admin_update" on storage.objects;
+create policy "zmzm_product_images_admin_update"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'zmzm-product-images'
+  and (storage.foldername(name))[1] = 'products'
+  and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+)
+with check (
+  bucket_id = 'zmzm-product-images'
+  and (storage.foldername(name))[1] = 'products'
+  and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+);
+
+drop policy if exists "zmzm_product_images_admin_delete" on storage.objects;
+create policy "zmzm_product_images_admin_delete"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'zmzm-product-images'
+  and (storage.foldername(name))[1] = 'products'
+  and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+);

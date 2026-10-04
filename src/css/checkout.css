@@ -403,6 +403,10 @@ textarea:focus {
 }
 
 @media (max-width: 560px) {
+  .summary-panel {
+    order: -1;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }

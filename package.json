@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "migrate:product-images": "node scripts/migrate-product-images.mjs",
     "predeploy": "npm run build -- --base=/Zmzm/",
     "deploy": "gh-pages -d dist"
   },

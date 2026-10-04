@@ -3,6 +3,8 @@ import { escapeHtml, safeImageUrl } from "./safe-dom.js";
 import { usernameToAuthEmail } from "./admin-auth.js";
 
 const PRODUCT_FIELDS = "id,name,category,price,old_price,tag,meta,rating,specs,image,type";
+const PRODUCT_IMAGE_BUCKET = "zmzm-product-images";
+const MAX_PRODUCT_IMAGE_SIZE = 10 * 1024 * 1024;
 const categoryNames = {
   boards: "قواعد كيك",
   boxes: "علب الكيك",
@@ -134,6 +136,34 @@ function readImageFile(file) {
     reader.onerror = () => reject(new Error("فشل في قراءة الصورة"));
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadProductImage(imageDataUrl) {
+  const extensions = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  };
+  const match = imageDataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([\s\S]+)$/i);
+  if (!match) throw new Error("بيانات صورة المنتج غير صالحة.");
+  const [, contentType] = match;
+  const blob = await fetch(imageDataUrl).then((response) => response.blob());
+  const extension = extensions[contentType.toLowerCase()];
+  if (!extension) throw new Error("صيغة الصورة غير مدعومة.");
+  if (blob.size > MAX_PRODUCT_IMAGE_SIZE) throw new Error("يجب ألا يتجاوز حجم الصورة 10 ميجابايت.");
+
+  const path = `products/${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabaseClient.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .upload(path, blob, {
+      contentType,
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (error) throw error;
+
+  const { data } = supabaseClient.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+  return { path, url: data.publicUrl };
 }
 
 async function loadProducts() {
@@ -350,8 +380,15 @@ productForm.addEventListener("submit", async (event) => {
   };
   const saveButton = document.getElementById("saveProduct");
   saveButton.disabled = true;
+  let uploadedImagePath = "";
 
   try {
+    if (currentImageInput.value.startsWith("data:image/")) {
+      const uploadedImage = await uploadProductImage(currentImageInput.value);
+      uploadedImagePath = uploadedImage.path;
+      payload.image = uploadedImage.url;
+    }
+
     const query = productId
       ? supabaseClient.from("products").update(payload).eq("id", Number(productId))
       : supabaseClient.from("products").insert(payload);
@@ -367,7 +404,13 @@ productForm.addEventListener("submit", async (event) => {
     showToast(productId ? "تم تحديث المنتج" : "تمت إضافة المنتج");
   } catch (error) {
     console.error("تعذر حفظ المنتج في Supabase.", error);
-    showToast("تعذر حفظ المنتج. لم يتم تغيير البيانات.");
+    if (uploadedImagePath) {
+      const { error: cleanupError } = await supabaseClient.storage
+        .from(PRODUCT_IMAGE_BUCKET)
+        .remove([uploadedImagePath]);
+      if (cleanupError) console.error("تعذر حذف صورة المنتج التي لم يتم حفظها.", cleanupError);
+    }
+    showToast(error instanceof Error ? error.message : "تعذر حفظ المنتج. لم يتم تغيير البيانات.");
   } finally {
     saveButton.disabled = false;
   }
