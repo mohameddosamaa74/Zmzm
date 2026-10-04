@@ -305,6 +305,10 @@ textarea:focus {
   padding-bottom: 22px;
 }
 
+.mobile-checkout-totals {
+  display: none;
+}
+
 .checkout-items {
   padding: 18px 26px 10px;
   display: flex;
@@ -400,13 +404,32 @@ textarea:focus {
   .checkout-layout {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 560px) {
   .summary-panel {
     order: -1;
   }
 
+  .summary-panel .totals {
+    display: none;
+  }
+
+  .mobile-checkout-totals {
+    display: block;
+    margin-top: 22px;
+    padding: 18px 20px 10px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fbfcff;
+  }
+
+  .mobile-checkout-totals h3 {
+    margin: 0 0 14px;
+    color: var(--navy);
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 560px) {
   .field-grid {
     grid-template-columns: 1fr;
   }

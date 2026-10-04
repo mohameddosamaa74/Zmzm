@@ -35,6 +35,11 @@ function getTotals(items, governorate = "") {
   return { subtotal, shipping, total: shipping === null ? null : subtotal + shipping };
 }
 
+function setCheckoutTotalText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+
 function renderSummary(message = "") {
   const container = document.getElementById("checkoutItems");
   const submitButton = document.querySelector("#checkoutForm button[type='submit']");
@@ -47,9 +52,15 @@ function renderSummary(message = "") {
 
   if (!cart.length) {
     container.innerHTML = '<div class="empty-cart">السلة فارغة حالياً. عد إلى المتجر لإضافة منتجات.</div>';
-    document.getElementById("checkoutSubtotal").textContent = "٠ ج.م";
-    document.getElementById("checkoutShipping").textContent = "—";
-    document.getElementById("checkoutTotal").textContent = "٠ ج.م";
+    for (const id of ["checkoutSubtotal", "mobileCheckoutSubtotal", "checkoutTotal", "mobileCheckoutTotal"]) {
+      setCheckoutTotalText(id, "٠ ج.م");
+    }
+    for (const id of ["checkoutShipping", "mobileCheckoutShipping"]) {
+      setCheckoutTotalText(id, "—");
+    }
+    for (const id of ["checkoutDeliveryNote", "mobileCheckoutDeliveryNote"]) {
+      setCheckoutTotalText(id, DELIVERY_TIME_NOTE);
+    }
     return;
   }
 
@@ -75,16 +86,26 @@ function renderSummary(message = "") {
     `;
   }).join("");
 
-  document.getElementById("checkoutSubtotal").textContent = money(subtotal);
-  document.getElementById("checkoutShipping").textContent = shipping === null
+  const shippingText = shipping === null
     ? "اختر المحافظة لحساب الشحن"
     : shipping
       ? money(shipping)
       : "مجاني";
-  document.getElementById("checkoutTotal").textContent = total === null
+  const totalText = total === null
     ? "اختر المحافظة"
     : money(total);
-  document.getElementById("checkoutDeliveryNote").textContent = DELIVERY_TIME_NOTE;
+  for (const id of ["checkoutSubtotal", "mobileCheckoutSubtotal"]) {
+    setCheckoutTotalText(id, money(subtotal));
+  }
+  for (const id of ["checkoutShipping", "mobileCheckoutShipping"]) {
+    setCheckoutTotalText(id, shippingText);
+  }
+  for (const id of ["checkoutTotal", "mobileCheckoutTotal"]) {
+    setCheckoutTotalText(id, totalText);
+  }
+  for (const id of ["checkoutDeliveryNote", "mobileCheckoutDeliveryNote"]) {
+    setCheckoutTotalText(id, DELIVERY_TIME_NOTE);
+  }
 }
 
 async function loadCurrentProducts() {
