@@ -21,6 +21,8 @@
     <link rel="stylesheet" href="src/css/overlay-scroll.css" />
     <link rel="stylesheet" href="src/css/shipping.css" />
     <link rel="stylesheet" href="src/css/navigation-fit.css" />
+    <link rel="stylesheet" href="src/css/footer-contact.css" />
+    <link rel="stylesheet" href="src/css/section-headings.css" />
     <script type="module" src="src/js/home-refresh.js"></script>
   </head>
   <body>
@@ -119,7 +121,42 @@
       </div></section>
     </main>
 
-    <footer class="site-footer" id="contact"><div class="container footer-grid"><div class="footer-brand">    <a class="logo" href="#home"><span class="logo-mark">Z</span><span>زمزم<small>لمستلزمات الحلويات</small></span></a><p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p></div><div><h4>تسوق</h4><a href="#shop">منتجاتنا</a><a href="#shop">قواعد كيك</a><a href="#shop">علب الكيك</a><a href="#shop">العروض</a></div>    <div><h4>تواصل معنا</h4><p>السويس، مصر</p><p>01550293339</p></div></div><div class="container footer-bottom"><span>© 2026 زمزم. جميع الحقوق محفوظة.</span></div></footer>    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><small id="cartDeliveryNote" class="delivery-note"></small><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
+    <footer class="site-footer" id="contact">
+      <div class="container footer-grid footer-contact-grid">
+        <div class="footer-brand">
+          <a class="logo" href="#home" aria-label="زمزم، الصفحة الرئيسية">
+            <span class="logo-mark">Z</span>
+            <span>زمزم<small>لمستلزمات الحلويات</small></span>
+          </a>
+          <p>نغلف لحظاتك الحلوة<br />بكل حب واحتراف.</p>
+        </div>
+        <section class="footer-contact-panel" aria-labelledby="footerContactTitle">
+          <div>
+            <span class="footer-contact-eyebrow">نحن هنا لمساعدتك</span>
+            <h2 id="footerContactTitle">تواصل معنا</h2>
+            <p>يسعدنا الرد على استفساراتك ومساعدتك في اختيار ما يناسبك.</p>
+          </div>
+          <div class="footer-contact-info">
+            <span>السويس، مصر</span>
+            <a href="tel:+201024311053" dir="ltr">+20 102 431 1053</a>
+          </div>
+          <div class="footer-social-links" aria-label="تابعنا وتواصل معنا">
+            <a class="footer-social-link facebook-link" href="https://www.facebook.com/profile.php?id=100065062801311" target="_blank" rel="noopener noreferrer" aria-label="صفحة زمزم على فيسبوك">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 21v-8.2h2.8l.4-3.2h-3.2v-2c0-.9.3-1.5 1.6-1.5h1.7V3.2c-.3 0-1.3-.2-2.4-.2-2.5 0-4.2 1.5-4.2 4.3v2.4H7.3v3.2h2.8V21h3.3Z"/></svg>
+              <span>فيسبوك</span>
+            </a>
+            <a class="footer-social-link whatsapp-link" href="https://wa.me/201024311053" target="_blank" rel="noopener noreferrer" aria-label="تواصل مع زمزم عبر واتساب">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.8a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.3-4.9a8.4 8.4 0 1 1 16.2-3.8Z"/><path d="M8.7 8.1c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.5l.7 1.6c.1.2.1.4 0 .6l-.5.6c-.2.2-.2.4 0 .6.3.5.8 1 1.3 1.4.6.5 1.1.8 1.6 1 .2.1.4 0 .5-.1l.7-.8c.2-.2.4-.2.6-.1l1.5.7c.3.1.5.2.5.4 0 .3-.2 1.1-.7 1.5-.5.5-1.2.7-2 .5-1-.2-2.2-.8-3.5-1.9-1.1-.9-2-2.1-2.5-3.1-.5-1.1-.5-2.1.1-3Z"/></svg>
+              <span>واتساب</span>
+            </a>
+          </div>
+        </section>
+      </div>
+      <div class="container footer-bottom">
+        <span>© 2026 زمزم. جميع الحقوق محفوظة.</span>
+      </div>
+    </footer>
+    <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><small id="cartDeliveryNote" class="delivery-note"></small><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
     <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق التفاصيل">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
 <script type="module" src="script.js"></script>
 </body>

@@ -46,14 +46,6 @@
 
     <div class="admin-shell hidden" id="adminShell">
       <aside class="sidebar">
-        <div class="brand-block">
-          <div class="mini-logo">Z</div>
-          <div>
-            <strong>زمزم</strong>
-            <small>لوحة الإدارة</small>
-          </div>
-        </div>
-
         <nav class="side-menu" id="adminNavigation">
           <a href="#dashboard">نظرة سريعة</a>
           <a class="active" href="#products">المنتجات</a>
@@ -65,6 +57,25 @@
 
       <main class="admin-main" id="dashboard">
         <header class="topbar">
+          <a class="admin-header-brand" href="index.html" aria-label="زمزم، المتجر">
+            <span class="mini-logo">Z</span>
+            <span>
+              <strong>زمزم</strong>
+              <small>لوحة الإدارة</small>
+            </span>
+          </a>
+          <div class="topbar-title">
+            <span class="eyebrow">لوحة تحكم</span>
+            <h1>إدارة المنتجات</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-header-logout" type="button" id="logoutBtn">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10M14.5 16.5 19 12l-4.5-4.5M19 12H9" />
+              </svg>
+              <span>تسجيل الخروج</span>
+            </button>
+          </div>
           <button
             class="menu-toggle"
             id="menuToggle"
@@ -77,13 +88,6 @@
             <span></span>
             <span></span>
           </button>
-          <div>
-            <span class="eyebrow">لوحة تحكم</span>
-            <h1>إدارة المنتجات</h1>
-          </div>
-          <div class="topbar-actions">
-            <button class="btn btn-secondary" type="button" id="logoutBtn">تسجيل الخروج</button>
-          </div>
         </header>
 
         <section class="admin-view hidden" id="dashboardView">

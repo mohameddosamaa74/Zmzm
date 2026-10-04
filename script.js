@@ -1124,6 +1124,10 @@ $("#filterBar")?.addEventListener(
       );
 
     renderProducts();
+    document.getElementById("shop").scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 );
 
