@@ -406,11 +406,19 @@ button { cursor: pointer; }
   gap: 12px;
 }
 
+.orders-panel-head h2 {
+  white-space: nowrap;
+}
+
 .orders-panel-actions {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+}
+
+.orders-panel-actions .btn {
+  white-space: nowrap;
 }
 
 .orders-panel-actions .btn.is-loading::before {
@@ -988,7 +996,49 @@ td strong {
   }
 }
 
+@media (max-width: 760px) {
+  .orders-panel-head {
+    gap: 8px;
+  }
+
+  .orders-panel-head h2 {
+    font-size: 18px;
+  }
+
+  .orders-panel-actions {
+    gap: 6px;
+  }
+
+  .orders-panel-actions .btn {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
 @media (max-width: 380px) {
+  .quick-orders-panel {
+    padding: 12px;
+  }
+
+  .orders-panel-head {
+    gap: 6px;
+  }
+
+  .orders-panel-head h2 {
+    font-size: 16px;
+  }
+
+  .orders-panel-actions {
+    gap: 4px;
+  }
+
+  .orders-panel-actions .btn {
+    min-height: 36px;
+    padding: 6px;
+    font-size: 10px;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;
