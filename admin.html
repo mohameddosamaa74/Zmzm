@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>لوحة إدارة زمزم</title>
     <meta name="description" content="لوحة إدارة منتجات زمزم لإدارة العلب وقواعد الكيك والتغليف." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -54,7 +55,7 @@
         </div>
 
         <nav class="side-menu" id="adminNavigation">
-          <a href="#dashboard">نظرة عامة</a>
+          <a href="#dashboard">نظرة سريعة</a>
           <a class="active" href="#products">المنتجات</a>
           <a href="#orders">الطلبات</a>
           <a href="index.html">المتجر</a>
@@ -85,23 +86,49 @@
           </div>
         </header>
 
-        <section class="stats-grid admin-view hidden" id="dashboardView">
-          <article class="stat-card">
-            <span>إجمالي المنتجات</span>
-            <strong id="totalProducts">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>قواعد كيك</span>
-            <strong id="boardsCount">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>علب الكيك</span>
-            <strong id="boxesCount">0</strong>
-          </article>
-          <article class="stat-card">
-            <span>تغليف</span>
-            <strong id="packagingCount">0</strong>
-          </article>
+        <section class="admin-view hidden" id="dashboardView">
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>إجمالي المنتجات</span>
+              <strong id="totalProducts">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>قواعد كيك</span>
+              <strong id="boardsCount">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>علب الكيك</span>
+              <strong id="boxesCount">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>تغليف</span>
+              <strong id="packagingCount">0</strong>
+            </article>
+          </div>
+
+          <section class="panel quick-orders-panel">
+            <div class="panel-head orders-panel-head">
+              <h2>آخر الطلبات</h2>
+              <a class="btn btn-secondary" id="viewAllOrders" href="#orders">إدارة كل الطلبات</a>
+            </div>
+            <div class="table-wrap">
+              <table class="orders-table quick-orders-table">
+                <thead>
+                  <tr>
+                    <th>رقم الطلب</th>
+                    <th>العميل</th>
+                    <th>الهاتف</th>
+                    <th>الإجمالي</th>
+                    <th>الحالة والإدارة</th>
+                    <th>التاريخ</th>
+                    <th>التفاصيل</th>
+                  </tr>
+                </thead>
+                <tbody id="quickOrdersTableBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="quickOrdersEmpty">لا توجد طلبات حتى الآن.</p>
+          </section>
         </section>
 
         <section class="panel admin-view" id="products">
@@ -147,11 +174,11 @@
                   <th>العميل</th>
                   <th>الهاتف</th>
                   <th>المدينة / المحافظة</th>
-                  <th>المنتجات</th>
                   <th>ملاحظات</th>
                   <th>الإجمالي</th>
                   <th>الحالة</th>
                   <th>التاريخ</th>
+                  <th>التفاصيل</th>
                 </tr>
               </thead>
               <tbody id="ordersTableBody"></tbody>
@@ -233,6 +260,30 @@
             <button class="btn btn-secondary" id="cancelProductDialog" type="button">إلغاء</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="order-details-dialog" id="orderDetailsDialog" aria-labelledby="orderDetailsTitle">
+      <div class="product-dialog-head">
+        <h2 id="orderDetailsTitle">تفاصيل الطلب</h2>
+        <button class="icon-btn" id="closeOrderDetails" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="order-details-content" id="orderDetailsContent"></div>
+    </dialog>
+
+    <dialog class="status-whatsapp-dialog" id="statusWhatsAppDialog" aria-labelledby="statusWhatsAppTitle">
+      <div class="product-dialog-head">
+        <h2 id="statusWhatsAppTitle">تم تحديث حالة الطلب</h2>
+        <button class="icon-btn" id="closeStatusWhatsApp" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="status-whatsapp-content">
+        <p>هل تريد إرسال تحديث الحالة إلى العميل عبر واتساب؟</p>
+        <p class="status-whatsapp-message" id="statusWhatsAppMessage" dir="auto"></p>
+        <p class="status-whatsapp-phone-note" id="statusWhatsAppPhoneNote"></p>
+        <div class="form-actions">
+          <a class="btn btn-primary" id="sendStatusWhatsApp" href="#" target="_blank" rel="noopener noreferrer">إرسال عبر واتساب</a>
+          <button class="btn btn-secondary" id="cancelStatusWhatsApp" type="button">ليس الآن</button>
+        </div>
       </div>
     </dialog>
 

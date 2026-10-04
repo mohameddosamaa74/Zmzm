@@ -250,6 +250,7 @@ function initCheckout() {
           name: product.name,
           unit_price: product.price,
           quantity,
+          image: product.image,
         })),
         subtotal,
         shipping,

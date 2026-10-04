@@ -1,5 +1,5 @@
 import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
-import { escapeHtml, safeImageUrl } from "./safe-dom.js";
+import { escapeHtml, normalizeDigits, safeImageUrl } from "./safe-dom.js";
 import { usernameToAuthEmail } from "./admin-auth.js";
 
 const PRODUCT_FIELDS = "id,name,category,price,old_price,tag,meta,rating,specs,image,type";
@@ -23,6 +23,8 @@ const menuToggle = document.getElementById("menuToggle");
 const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 const adminNavigation = document.getElementById("adminNavigation");
 const productDialog = document.getElementById("productDialog");
+const orderDetailsDialog = document.getElementById("orderDetailsDialog");
+const statusWhatsAppDialog = document.getElementById("statusWhatsAppDialog");
 const logoutBtn = document.getElementById("logoutBtn");
 const productImageInput = document.getElementById("productImage");
 const productImagePreview = document.getElementById("productImagePreview");
@@ -33,11 +35,17 @@ let orders = [];
 let isAdmin = false;
 const ORDER_STATUSES = {
   pending: "جديد",
-  confirmed: "تم التأكيد",
   processing: "قيد التجهيز",
   shipped: "تم الشحن",
-  delivered: "تم التسليم",
-  cancelled: "ملغي",
+};
+const ORDER_STATUS_MESSAGES = {
+  processing: "بدأنا تجهيز طلبك.",
+  shipped: "تم شحن طلبك، وهو في الطريق إليك.",
+};
+const LEGACY_ORDER_STATUS_LABELS = {
+  confirmed: "تم التأكيد (حالة سابقة)",
+  delivered: "تم التسليم (حالة سابقة)",
+  cancelled: "ملغي (حالة سابقة)",
 };
 
 function showToast(message) {
@@ -48,6 +56,21 @@ function showToast(message) {
 
 function formatMoney(value) {
   return `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
+}
+
+function getOrderStatusLabel(status) {
+  return ORDER_STATUSES[status] || LEGACY_ORDER_STATUS_LABELS[status] || status || "—";
+}
+
+function renderOrderStatusOptions(order) {
+  const currentStatus = String(order.status || "");
+  const legacyOption = ORDER_STATUSES[currentStatus]
+    ? ""
+    : `<option value="${escapeHtml(currentStatus)}" selected disabled>${escapeHtml(LEGACY_ORDER_STATUS_LABELS[currentStatus] || "حالة غير معروفة")}</option>`;
+
+  return `${legacyOption}${Object.entries(ORDER_STATUSES).map(([value, label]) =>
+    `<option value="${value}" ${currentStatus === value ? "selected" : ""}>${label}</option>`
+  ).join("")}`;
 }
 
 function normalizeProduct(row) {
@@ -83,7 +106,7 @@ function setMenuOpen(isOpen) {
 
 function showAdminView(view) {
   const views = {
-    dashboard: { element: document.getElementById("dashboardView"), title: "إدارة المنتجات" },
+    dashboard: { element: document.getElementById("dashboardView"), title: "نظرة سريعة" },
     products: { element: document.getElementById("products"), title: "المنتجات" },
     orders: { element: document.getElementById("orders"), title: "الطلبات" },
   };
@@ -93,7 +116,7 @@ function showAdminView(view) {
     adminNavigation.querySelector(`[href="#${name}"]`)?.classList.toggle("active", item === selectedView);
   }
   document.querySelector(".topbar h1").textContent = selectedView.title;
-  if (view === "orders") loadOrders();
+  if (view === "orders" || view === "dashboard") loadOrders();
 }
 
 function renderStats() {
@@ -191,10 +214,6 @@ function resetForm() {
 
 function renderOrders() {
   const rows = orders.map((order) => {
-    const items = Array.isArray(order.items) ? order.items : [];
-    const itemSummary = items.map((item) =>
-      `${escapeHtml(item.name)} × ${escapeHtml(item.quantity)} (${formatMoney(item.unit_price)})`
-    ).join("<br>");
     const customerName = `${order.first_name} ${order.last_name}`.trim();
     const createdAt = new Date(order.created_at);
     const formattedDate = Number.isNaN(createdAt.getTime())
@@ -207,23 +226,52 @@ function renderOrders() {
         <td>${escapeHtml(customerName)}<br><small>${escapeHtml(order.address)}, ${escapeHtml(order.building)}, ${escapeHtml(order.floor)}, ${escapeHtml(order.apartment)}</small></td>
         <td dir="ltr">${escapeHtml(order.phone)}</td>
         <td>${escapeHtml(order.city)}، ${escapeHtml(order.governorate)}</td>
-        <td>${itemSummary || "—"}</td>
         <td>${escapeHtml(order.notes || "—")}</td>
         <td>${formatMoney(order.total)}</td>
         <td>
           <select class="order-status" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
-            ${Object.entries(ORDER_STATUSES).map(([value, label]) =>
-              `<option value="${value}" ${order.status === value ? "selected" : ""}>${label}</option>`
-            ).join("")}
+            ${renderOrderStatusOptions(order)}
           </select>
         </td>
         <td>${escapeHtml(formattedDate)}</td>
+        <td><button class="btn btn-secondary order-details-button" type="button" data-order-details="${escapeHtml(order.id)}">تفاصيل الطلب</button></td>
       </tr>
     `;
   }).join("");
 
   document.getElementById("ordersTableBody").innerHTML = rows;
   document.getElementById("ordersEmpty").classList.toggle("hidden", orders.length > 0);
+  renderQuickOrders();
+}
+
+function renderQuickOrders() {
+  const recentOrders = orders.slice(0, 5);
+  const rows = recentOrders.map((order) => {
+    const customerName = `${order.first_name} ${order.last_name}`.trim();
+    const createdAt = new Date(order.created_at);
+    const formattedDate = Number.isNaN(createdAt.getTime())
+      ? "—"
+      : createdAt.toLocaleString("ar-EG");
+
+    return `
+      <tr>
+        <td dir="ltr">${escapeHtml(String(order.id).slice(0, 8))}</td>
+        <td>${escapeHtml(customerName)}</td>
+        <td dir="ltr">${escapeHtml(order.phone)}</td>
+        <td>${formatMoney(order.total)}</td>
+        <td>
+          <select class="order-status" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
+            ${renderOrderStatusOptions(order)}
+          </select>
+        </td>
+        <td>${escapeHtml(formattedDate)}</td>
+        <td><button class="btn btn-secondary order-details-button" type="button" data-order-details="${escapeHtml(order.id)}">تفاصيل الطلب</button></td>
+      </tr>
+    `;
+  }).join("");
+
+  document.getElementById("quickOrdersTableBody").innerHTML = rows;
+  document.getElementById("quickOrdersEmpty").classList.toggle("hidden", recentOrders.length > 0);
 }
 
 async function loadOrders() {
@@ -237,7 +285,7 @@ async function loadOrders() {
   try {
     const { data, error } = await supabaseClient
       .from("orders")
-      .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,total,status")
+      .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,subtotal,shipping,total,status")
       .order("created_at", { ascending: false });
     if (error) throw error;
     orders = data || [];
@@ -432,25 +480,151 @@ productDialog.addEventListener("cancel", () => resetForm());
 
 document.getElementById("refreshOrders").addEventListener("click", loadOrders);
 
-document.getElementById("ordersTableBody").addEventListener("change", async (event) => {
+function renderOrderDetails(order) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const productsById = new Map(products.map((product) => [String(product.id), product]));
+  const itemCards = items.map((item) => {
+    const product = productsById.get(String(item.product_id));
+    const imageSource = String(item.image || product?.image || "").trim();
+    const imageUrl = imageSource ? safeImageUrl(imageSource) : "";
+    const quantity = Number(item.quantity) || 0;
+    const unitPrice = Number(item.unit_price) || 0;
+
+    return `
+      <article class="order-detail-item">
+        ${imageUrl
+          ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.name)}" loading="lazy" />`
+          : `<div class="order-detail-image-placeholder">لا توجد صورة</div>`}
+        <div class="order-detail-item-info">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span>الكمية: ${escapeHtml(quantity)}</span>
+          <span>سعر القطعة: ${formatMoney(unitPrice)}</span>
+          <strong>الإجمالي: ${formatMoney(unitPrice * quantity)}</strong>
+        </div>
+      </article>
+    `;
+  }).join("");
+  const customerName = `${order.first_name} ${order.last_name}`.trim();
+  const createdAt = new Date(order.created_at);
+  const formattedDate = Number.isNaN(createdAt.getTime())
+    ? "—"
+    : createdAt.toLocaleString("ar-EG");
+
+  document.getElementById("orderDetailsTitle").textContent =
+    `تفاصيل الطلب ${String(order.id).slice(0, 8)}`;
+  document.getElementById("orderDetailsContent").innerHTML = `
+    <section class="order-detail-customer">
+      <h3>بيانات العميل</h3>
+      <p><strong>الاسم:</strong> ${escapeHtml(customerName)}</p>
+      <p><strong>الهاتف:</strong> <span dir="ltr">${escapeHtml(order.phone)}</span></p>
+      <p><strong>العنوان:</strong> ${escapeHtml([order.governorate, order.city, order.address, order.building, order.floor, order.apartment].filter(Boolean).join("، ") || "—")}</p>
+      <p><strong>ملاحظات:</strong> ${escapeHtml(order.notes || "—")}</p>
+      <p><strong>الحالة:</strong> ${escapeHtml(getOrderStatusLabel(order.status))}</p>
+      <p><strong>التاريخ:</strong> ${escapeHtml(formattedDate)}</p>
+    </section>
+    <section class="order-detail-products">
+      <h3>المنتجات</h3>
+      ${itemCards || `<p class="orders-empty">لا توجد منتجات مسجلة في هذا الطلب.</p>`}
+      <div class="order-detail-totals">
+        <p><span>المجموع الفرعي</span><strong>${formatMoney(order.subtotal)}</strong></p>
+        <p><span>التوصيل</span><strong>${formatMoney(order.shipping)}</strong></p>
+        <p class="order-detail-total"><span>إجمالي الطلب</span><strong>${formatMoney(order.total)}</strong></p>
+      </div>
+    </section>
+  `;
+  orderDetailsDialog.showModal();
+}
+
+document.addEventListener("click", (event) => {
+  const detailsButton = event.target.closest("button[data-order-details]");
+  if (!detailsButton) return;
+  const order = orders.find((item) => String(item.id) === detailsButton.dataset.orderDetails);
+  if (order) renderOrderDetails(order);
+});
+
+document.getElementById("closeOrderDetails").addEventListener("click", () => {
+  orderDetailsDialog.close();
+});
+
+orderDetailsDialog.addEventListener("click", (event) => {
+  if (event.target === orderDetailsDialog) orderDetailsDialog.close();
+});
+
+document.getElementById("viewAllOrders").addEventListener("click", (event) => {
+  event.preventDefault();
+  location.hash = "orders";
+  showAdminView("orders");
+});
+
+function openStatusWhatsAppPrompt(order, status) {
+  const phone = normalizeDigits(order.phone).replace(/\D/g, "");
+  const whatsappPhone = phone.startsWith("20")
+    ? phone
+    : `20${phone.startsWith("0") ? phone.slice(1) : phone}`;
+  const customerName = `${order.first_name} ${order.last_name}`.trim();
+  const message = [
+    `مرحباً ${customerName}،`,
+    ORDER_STATUS_MESSAGES[status],
+    `رقم الطلب: ${String(order.id).slice(0, 8)}`,
+    `الحالة: ${ORDER_STATUSES[status]}`,
+    `الإجمالي: ${formatMoney(order.total)}`,
+  ].join("\n");
+  const sendButton = document.getElementById("sendStatusWhatsApp");
+  const phoneIsValid = /^20\d{10}$/.test(whatsappPhone);
+
+  document.getElementById("statusWhatsAppMessage").textContent = message;
+  document.getElementById("statusWhatsAppPhoneNote").textContent = phoneIsValid
+    ? `سيتم فتح محادثة واتساب مع ${customerName}.`
+    : "رقم الهاتف غير صالح لفتح واتساب. تحقق من رقم العميل في تفاصيل الطلب.";
+  sendButton.href = phoneIsValid
+    ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+    : "#";
+  sendButton.classList.toggle("disabled", !phoneIsValid);
+  sendButton.setAttribute("aria-disabled", String(!phoneIsValid));
+  statusWhatsAppDialog.showModal();
+}
+
+document.getElementById("closeStatusWhatsApp").addEventListener("click", () => {
+  statusWhatsAppDialog.close();
+});
+
+document.getElementById("cancelStatusWhatsApp").addEventListener("click", () => {
+  statusWhatsAppDialog.close();
+});
+
+document.getElementById("sendStatusWhatsApp").addEventListener("click", (event) => {
+  if (event.currentTarget.getAttribute("aria-disabled") === "true") {
+    event.preventDefault();
+  } else {
+    statusWhatsAppDialog.close();
+  }
+});
+
+document.addEventListener("change", async (event) => {
   const select = event.target.closest("select[data-order-id]");
   if (!select) return;
 
   const previousStatus = select.dataset.currentStatus;
+  const nextStatus = select.value;
+  const order = orders.find((item) => String(item.id) === select.dataset.orderId);
+  if (!order || nextStatus === previousStatus) return;
   select.disabled = true;
   try {
     const { error } = await supabaseClient
       .from("orders")
-      .update({ status: select.value })
+      .update({ status: nextStatus })
       .eq("id", select.dataset.orderId);
     if (error) throw error;
-    select.dataset.currentStatus = select.value;
-    const order = orders.find((item) => item.id === select.dataset.orderId);
-    if (order) order.status = select.value;
-    showToast("تم تحديث حالة الطلب");
+    order.status = nextStatus;
+    renderOrders();
+    if (nextStatus === "processing" || nextStatus === "shipped") {
+      openStatusWhatsAppPrompt(order, nextStatus);
+    } else {
+      showToast("تم تحديث حالة الطلب");
+    }
   } catch (error) {
     console.error("تعذر تحديث حالة الطلب.", error);
-    select.value = previousStatus;
+    renderOrders();
     showToast("تعذر تحديث حالة الطلب. حاول مرة أخرى.");
   } finally {
     select.disabled = false;
@@ -466,7 +640,7 @@ sidebarBackdrop.addEventListener("click", () => setMenuOpen(false));
 adminNavigation.addEventListener("click", (event) => {
   const link = event.target.closest("a");
   if (!link) return;
-if (link.hash) showAdminView(link.hash.slice(1));
+  if (link.hash) showAdminView(link.hash.slice(1));
   setMenuOpen(false);
 });
 
@@ -507,7 +681,8 @@ loginForm.addEventListener("submit", async (event) => {
     isAdmin = true;
     updateAuthUI();
     await loadProducts();
-    showAdminView(location.hash.slice(1) || "products");
+    location.hash = "dashboard";
+    showAdminView("dashboard");
     loginForm.reset();
     showToast("تم تسجيل الدخول");
   } catch (error) {
@@ -554,7 +729,7 @@ async function initializeAdmin() {
     updateAuthUI();
     if (isAdmin) {
       await loadProducts();
-      showAdminView(location.hash.slice(1) || "products");
+      showAdminView(location.hash.slice(1) || "dashboard");
     }
     resetForm();
   } catch (error) {
