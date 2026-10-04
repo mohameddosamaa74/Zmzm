@@ -1,2 +1,5 @@
 [functions.create-order]
 verify_jwt = false
+
+[functions.create-product-inquiry]
+verify_jwt = false

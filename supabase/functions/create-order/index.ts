@@ -157,6 +157,12 @@ Deno.serve(async (request) => {
       if (message.includes("ORDER_INVALID")) {
         return json({ error: "تحقق من بيانات الطلب ثم حاول مرة أخرى." }, 400);
       }
+      if (message.includes("INVENTORY_INSUFFICIENT_AVAILABLE")) {
+        return json({ error: "الكمية المطلوبة تتجاوز المتاح حالياً." }, 409);
+      }
+      if (message.includes("INVENTORY_OPENING_REQUIRED")) {
+        return json({ error: "لم يتم تسجيل مخزون هذا المنتج بعد." }, 409);
+      }
       console.error("create-order database request failed", error.code || "unknown");
       return json({ error: "تعذر حفظ الطلب حالياً. حاول مرة أخرى بعد قليل." }, 500);
     }

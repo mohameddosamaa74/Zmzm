@@ -45,7 +45,12 @@ function setCheckoutTotalText(id, value) {
 function renderSummary(message = "") {
   const container = document.getElementById("checkoutItems");
   const submitButton = document.querySelector("#checkoutForm button[type='submit']");
-  if (submitButton) submitButton.disabled = !productsReady || cart.length === 0;
+  const hasUnavailableItems = cart.some(({ product, quantity }) =>
+    product.available !== true ||
+    !Number.isInteger(product.availableQuantity) ||
+    quantity > product.availableQuantity
+  );
+  if (submitButton) submitButton.disabled = !productsReady || cart.length === 0 || hasUnavailableItems;
 
   if (message) {
     container.innerHTML = `<div class="empty-cart" role="alert">${escapeHtml(message)}</div>`;
@@ -68,7 +73,7 @@ function renderSummary(message = "") {
 
   const governorate = document.querySelector('#checkoutForm [name="governorate"]')?.value || "";
   const { subtotal, shipping, total } = getTotals(cart, governorate);
-  container.innerHTML = cart.map(({ product, quantity }) => {
+  container.innerHTML = `${hasUnavailableItems ? '<div class="inventory-checkout-warning" role="alert">بعض المنتجات في سلتك نفدت أو تعذر التحقق من توفرها. <a href="index.html#shop">ارجع للمتجر لتعديل السلة.</a></div>' : ""}${cart.map(({ product, quantity }) => {
     const image = safeImageUrl(product.image);
     const thumb = image
       ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" decoding="async" />`
@@ -82,11 +87,12 @@ function renderSummary(message = "") {
         <div>
           <h3>${escapeHtml(product.name)}</h3>
           <span class="qty">الكمية: ${quantity}</span>
+          ${product.available === true && Number.isInteger(product.availableQuantity) && quantity <= product.availableQuantity ? "" : `<span class="checkout-stock-status">${product.available === false ? "نفد المخزون — سيتوفر قريباً" : Number.isInteger(product.availableQuantity) ? `المتاح ${product.availableQuantity} فقط، عدّل الكمية في السلة` : "تعذر التحقق من الكمية المتاحة"}</span>`}
         </div>
         <strong>${money(product.price * quantity)}</strong>
       </div>
     `;
-  }).join("");
+  }).join("")}`;
 
   const shippingText = shipping === null
     ? "اختر المحافظة لحساب الشحن"
@@ -133,6 +139,19 @@ async function loadCurrentProducts() {
       .in("id", productIds);
     if (error) throw error;
 
+    const { data: availabilityRows, error: availabilityError } = await supabaseClient
+      .rpc("get_public_product_availability");
+    if (availabilityError) throw availabilityError;
+    const availability = new Map((availabilityRows || []).map((row) => [
+      Number(row.product_id),
+      {
+        available: typeof row.available === "boolean" ? row.available : null,
+        availableQuantity: Number.isInteger(row.available_quantity)
+          ? Math.max(0, row.available_quantity)
+          : null,
+      },
+    ]));
+
     const products = new Map((data || []).map((product) => [
       Number(product.id),
       {
@@ -141,6 +160,8 @@ async function loadCurrentProducts() {
         price: Number(product.price),
         image: String(product.image || ""),
         type: String(product.type || ""),
+        available: availability.get(Number(product.id))?.available ?? null,
+        availableQuantity: availability.get(Number(product.id))?.availableQuantity ?? null,
       },
     ]));
 
@@ -191,10 +212,16 @@ function initCheckout() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!productsReady || !cart.length) {
+    if (!productsReady || !cart.length || cart.some(({ product, quantity }) =>
+      product.available !== true ||
+      !Number.isInteger(product.availableQuantity) ||
+      quantity > product.availableQuantity
+    )) {
       renderSummary(!productsReady
         ? "تعذر التحقق من المنتجات والأسعار. حاول مرة أخرى لاحقاً."
-        : "السلة فارغة، الرجاء إضافة منتجات أولاً.");
+        : !cart.length
+          ? "السلة فارغة، الرجاء إضافة منتجات أولاً."
+          : "بعض الكميات في السلة تجاوزت المتاح بالمخزون. ارجع للمتجر لتعديلها.");
       return;
     }
 
@@ -255,7 +282,9 @@ function initCheckout() {
       const status = error?.context?.status || error?.status;
       alert(status === 429
         ? "تم إرسال طلبات كثيرة من هذا الاتصال. انتظر قليلاً ثم حاول مرة أخرى."
-        : "تعذر حفظ الطلب حالياً. لم يتم مسح السلة؛ حاول مرة أخرى بعد قليل.");
+        : status === 409
+          ? "الكمية المطلوبة لم تعد متاحة بالكامل. ارجع للمتجر لتعديل الكمية ثم أعد المحاولة."
+          : "تعذر حفظ الطلب حالياً. لم يتم مسح السلة؛ حاول مرة أخرى بعد قليل.");
       submitButton.disabled = false;
       return;
     }

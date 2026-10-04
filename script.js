@@ -3,7 +3,6 @@ import { escapeHtml, normalizeDigits, safeImageUrl } from "./src/js/safe-dom.js"
 import { DELIVERY_TIME_NOTE, getShippingFee } from "./src/js/shipping.js";
 
 const CART_STORAGE_KEY = "zmzm-cart";
-const WISHLIST_STORAGE_KEY = "zmzm-wishlist";
 const CART_ITEM_LIMIT = 99;
 const BULK_WHATSAPP_NUMBER = "201024311053";
 const EGYPT_GOVERNORATES = [
@@ -64,6 +63,52 @@ function normalizeProduct(row) {
 let products = [];
 let productsLoading = true;
 let productsLoadError = false;
+let productAvailabilityError = false;
+
+async function loadPublicProductAvailability() {
+  const { data, error } = await supabaseClient.rpc("get_public_product_availability");
+  if (error) throw error;
+
+  return new Map((data || []).map((row) => [
+    Number(row.product_id),
+    {
+      available: typeof row.available === "boolean" ? row.available : null,
+      availableQuantity: Number.isInteger(row.available_quantity)
+        ? Math.max(0, row.available_quantity)
+        : null,
+    },
+  ]));
+}
+
+function productCartQuantity(productId) {
+  return state.cart.find((item) => item.product.id === productId)?.quantity || 0;
+}
+
+function productAtCartLimit(product) {
+  return Number.isInteger(product.availableQuantity) &&
+    productCartQuantity(product.id) >= product.availableQuantity;
+}
+
+function productAvailabilityMessage(product) {
+  if (productAvailabilityError) return "تعذر التحقق من المخزون";
+  if (product.available === false) return "نفد المخزون — سيتوفر قريباً";
+  if (product.available === true && !Number.isInteger(product.availableQuantity)) {
+    return "تعذر تحديد الكمية المتاحة";
+  }
+  if (productAtCartLimit(product)) return "وصلت إلى الحد المتاح في السلة";
+  return "التوفر غير محدد حالياً";
+}
+
+function productAvailabilityOverlay(product) {
+  const atCartLimit = productAtCartLimit(product);
+  if (product.available === true && !atCartLimit) return "";
+  const stateClass = product.available === false
+    ? "is-out-of-stock"
+    : atCartLimit
+      ? "is-cart-limit-reached"
+      : "availability-unknown";
+  return `<span class="product-stock-overlay ${stateClass}" role="status">${productAvailabilityMessage(product)}</span>`;
+}
 
 async function loadProductsFromSupabase() {
   if (!supabaseClient) {
@@ -110,6 +155,23 @@ async function syncProductsWithSupabase() {
   }
 
   products = await loadProductsFromSupabase();
+  let availability = new Map();
+  productAvailabilityError = false;
+  if (!productsLoadError) {
+    try {
+      availability = await loadPublicProductAvailability();
+    } catch (error) {
+      console.error("تعذر التحقق من توفر المنتجات:", error);
+      productAvailabilityError = true;
+    }
+  }
+  products = products.map((product) => ({
+    ...product,
+    available: productAvailabilityError ? null : availability.get(product.id)?.available ?? null,
+    availableQuantity: productAvailabilityError
+      ? null
+      : availability.get(product.id)?.availableQuantity ?? null,
+  }));
   const productsById = new Map(products.map((product) => [product.id, product]));
   state.cart = state.cart.flatMap(({ product, quantity }) => {
     const currentProduct = productsById.get(Number(product?.id));
@@ -149,7 +211,6 @@ const getStoredCart = () => {
 
 const state = {
   cart: [],
-  wishlist: [],
   filter: "all",
   search: "",
   sort: "default",
@@ -324,36 +385,6 @@ function renderSearchResults() {
   results.classList.add("visible");
 }
 
-function openProductDetails(product) {
-  const specs = productSpecEntries(product);
-  const details = specs.length
-    ? specs
-    : [
-        { label: "الفئة", value: categoryLabel[product.category] || "منتج" },
-      ];
-  $("#modalContent").innerHTML = `
-    <div class="modal-product">
-      <div class="product-image ${product.category}">
-        ${productArt(product)}
-      </div>
-      <div>
-        <span class="kicker">${categoryLabel[product.category] || "منتج"}</span>
-        <h2>${escapeHtml(product.name)}</h2>
-        <div class="product-meta">${escapeHtml(product.meta)}</div>
-        <h3>تفاصيل المنتج</h3>
-        <ul class="product-detail-specs">${details.map(({ label, value }) => `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></li>`).join("")}</ul>
-        <p class="product-detail-note">ملاحظة: ${escapeHtml(product.meta || "تفاصيل المنتج موضحة أعلاه.")}</p>
-        <div class="price product-detail-price">${money(product.price)}</div>
-        <button class="btn btn-primary wide modal-add" data-id="${product.id}">أضف للسلة <span>←</span></button>
-      </div>
-    </div>
-  `;
-
-  $("#quickModal")?.classList.add("open");
-  setPageScrollLock("modal", true);
-  $("#modalBackdrop")?.classList.add("visible");
-}
-
 function renderProducts() {
   const grid = $("#productGrid");
 
@@ -393,25 +424,26 @@ function renderProducts() {
     ? '<div class="empty-cart product-load-error" role="alert">تعذر تحميل المنتجات حالياً. تحقق من الاتصال ثم أعد المحاولة.<br /><button class="btn btn-primary retry-products" type="button">إعادة المحاولة</button></div>'
     : visible.length
     ? visible
-        .map(
-          (product) => `
-    <article class="product-card" data-product-id="${product.id}">
-      <div class="product-image ${product.category}">
+        .map((product) => {
+          const atCartLimit = productAtCartLimit(product);
+          const dimClass = product.available === false
+            ? "is-out-of-stock"
+            : atCartLimit
+              ? "is-cart-limit-reached"
+              : "";
+          const canAddProduct = product.available === true &&
+            Number.isInteger(product.availableQuantity) && !atCartLimit;
+          return `
+    <article class="product-card ${dimClass}" data-product-id="${product.id}">
+      <div class="product-image ${product.category} ${dimClass}">
         ${
           product.tag
             ? `<span class="product-badge">${escapeHtml(product.tag)}</span>`
             : ""
         }
 
-        <button class="wish ${state.wishlist.includes(product.id) ? "active" : ""}" aria-label="${state.wishlist.includes(product.id) ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}" aria-pressed="${state.wishlist.includes(product.id)}">
-          ${state.wishlist.includes(product.id) ? "♥" : "♡"}
-        </button>
-
-        <button class="quick-view" data-id="${product.id}">
-          عرض سريع
-        </button>
-
         ${productArt(product)}
+        ${productAvailabilityOverlay(product)}
       </div>
 
       <div class="product-info">
@@ -435,14 +467,15 @@ function renderProducts() {
           <button
             class="add-to-cart"
             data-id="${product.id}"
-            aria-label="إضافة ${escapeHtml(product.name)} للسلة"
+            aria-label="${canAddProduct ? `إضافة ${escapeHtml(product.name)} للسلة` : `${escapeHtml(product.name)}: ${productAvailabilityMessage(product)}`}"
+            ${canAddProduct ? "" : "disabled"}
           >
             ＋
           </button>
         </div>
       </div>
-    </article>`
-        )
+    </article>`;
+        })
         .join("")
     : products.length === 0
     ? '<div class="empty-cart" style="grid-column:1/-1">لا توجد منتجات متاحة حالياً.</div>'
@@ -512,8 +545,8 @@ function renderCart() {
         <div class="cart-thumb ${
           hasProductImage(product) ? "has-image" : ""
         }">
-          ${productArt(product)}
-        </div>
+        ${productArt(product)}
+      </div>
 
         <div>
           <h4>${escapeHtml(product.name)}</h4>
@@ -526,7 +559,7 @@ function renderCart() {
 
             <span>${quantity}</span>
 
-            <button data-action="increase" data-id="${product.id}" ${quantity >= CART_ITEM_LIMIT ? "disabled aria-label=\"الحد الأقصى للكمية\"" : ""}>
+            <button data-action="increase" data-id="${product.id}" ${!product.available || !Number.isInteger(product.availableQuantity) || quantity >= product.availableQuantity || quantity >= CART_ITEM_LIMIT ? "disabled aria-label=\"وصلت إلى الحد المتاح\"" : ""}>
               ＋
             </button>
           </div>
@@ -654,16 +687,27 @@ function addToCart(id) {
     (item) => item.id === id
   );
 
-  if (!product) return;
+  if (!product) return false;
+  if (product.available !== true || !Number.isInteger(product.availableQuantity)) {
+    toast(productAvailabilityMessage(product));
+    return false;
+  }
 
   const existing = state.cart.find(
     (item) => item.product.id === id
   );
+  const currentQuantity = existing?.quantity || 0;
+
+  if (currentQuantity >= product.availableQuantity) {
+    toast("وصلت إلى الحد المتاح في السلة");
+    renderProducts();
+    return false;
+  }
 
   if (existing) {
     if (existing.quantity >= CART_ITEM_LIMIT) {
       toast(`الحد الأقصى ${CART_ITEM_LIMIT} قطعة من المنتج الواحد`);
-      return;
+      return false;
     }
     existing.quantity += 1;
   } else {
@@ -675,8 +719,10 @@ function addToCart(id) {
 
   persistCart();
   renderCart();
+  renderProducts();
 
   toast("تمت إضافة المنتج إلى السلة");
+  return true;
 }
 
 $("#productGrid")?.addEventListener(
@@ -697,34 +743,6 @@ $("#productGrid")?.addEventListener(
       return;
     }
 
-    const wishButton = event.target.closest(".wish");
-    if (wishButton) {
-      const productCard = wishButton.closest("[data-product-id]");
-      const id = Number(productCard?.dataset.productId);
-      if (!Number.isFinite(id)) return;
-
-      state.wishlist = state.wishlist.includes(id)
-        ? state.wishlist.filter((favoriteId) => favoriteId !== id)
-        : [...state.wishlist, id];
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(state.wishlist));
-      renderProducts();
-      toast(state.wishlist.includes(id) ? "تمت إضافة المنتج إلى المفضلة" : "تمت إزالة المنتج من المفضلة");
-      return;
-    }
-
-    const quickView =
-      event.target.closest(".quick-view");
-
-    if (quickView) {
-      const product = products.find(
-        (item) =>
-          item.id === Number(quickView.dataset.id)
-      );
-
-      if (!product) return;
-
-      openProductDetails(product);
-    }
   }
 );
 
@@ -732,14 +750,27 @@ $("#searchResults")?.addEventListener("click", (event) => {
   const resultButton = event.target.closest(".search-result");
   if (!resultButton) return;
 
-  const product = products.find((item) => item.id === Number(resultButton.dataset.id));
-  if (!product) return;
+  const productId = Number(resultButton.dataset.id);
+  if (!products.some((product) => product.id === productId)) return;
 
   $("#searchPanel")?.classList.remove("open");
   $("#searchToggle")?.setAttribute("aria-expanded", "false");
   $("#searchToggle")?.setAttribute("aria-label", "فتح البحث");
+  state.search = "";
+  state.filter = "all";
+  state.visible = products.length;
+  $("#searchInput").value = "";
+  document.querySelectorAll("#filterBar button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.filter === "all");
+  });
   renderSearchResults();
-  openProductDetails(product);
+  renderProducts();
+  requestAnimationFrame(() => {
+    document.querySelector(`[data-product-id="${productId}"]`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  });
 });
 
 $("#modalContent")?.addEventListener(
@@ -807,14 +838,6 @@ $("#modalContent")?.addEventListener(
       return;
     }
 
-    const button =
-      event.target.closest(".modal-add");
-
-    if (button) {
-      addToCart(Number(button.dataset.id));
-
-      closeModal();
-    }
   }
 );
 
@@ -1073,6 +1096,10 @@ $("#cartItems")?.addEventListener(
     if (!item) return;
 
     if (button.dataset.action === "increase") {
+      if (item.product.available !== true || !Number.isInteger(item.product.availableQuantity) || item.quantity >= item.product.availableQuantity) {
+        toast("وصلت إلى الحد المتاح في المخزون");
+        return;
+      }
       if (item.quantity >= CART_ITEM_LIMIT) {
         toast(`الحد الأقصى ${CART_ITEM_LIMIT} قطعة من المنتج الواحد`);
         return;
@@ -1100,6 +1127,7 @@ $("#cartItems")?.addEventListener(
 
     persistCart();
     renderCart();
+    renderProducts();
   }
 );
 
@@ -1325,22 +1353,8 @@ document.addEventListener(
   }
 );
 
-function getStoredWishlist() {
-  try {
-    const saved = localStorage.getItem(WISHLIST_STORAGE_KEY);
-    const parsed = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((id) => Number.isFinite(id))
-      : [];
-  } catch (error) {
-    console.error("تعذرت قراءة المفضلة المحفوظة.", error);
-    return [];
-  }
-}
-
 // Initialize
 state.cart = getStoredCart();
-state.wishlist = getStoredWishlist();
 
 (async () => {
   await syncProductsWithSupabase();

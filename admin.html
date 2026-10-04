@@ -50,6 +50,10 @@
           <a href="#dashboard">نظرة سريعة</a>
           <a class="active" href="#products">المنتجات</a>
           <a href="#orders">الطلبات</a>
+          <a href="#inventory">المخزن</a>
+          <a href="#accounts">الحسابات</a>
+          <a href="#inquiries">استفسارات <span class="nav-count hidden" id="adminNewInquiriesBadge">0</span></a>
+          <a href="#analytics">تحليلات</a>
           <a href="index.html">المتجر</a>
         </nav>
       </aside>
@@ -149,6 +153,8 @@
                   <th>الاسم</th>
                   <th>الفئة</th>
                   <th>السعر</th>
+                  <th>تكلفة الشراء</th>
+                  <th>الربح للوحدة</th>
                   <th>التقييم</th>
                   <th>الإجراءات</th>
                 </tr>
@@ -156,7 +162,7 @@
               <tbody id="productTableBody"></tbody>
               <tfoot>
                 <tr>
-                  <td colspan="5">
+                  <td colspan="7">
                     <button class="btn btn-primary add-product-button" id="addProductButton" type="button">
                       <span aria-hidden="true">+</span>
                       إضافة منتج
@@ -198,8 +204,416 @@
             <button class="btn btn-secondary" id="nextOrdersPage" type="button">التالي</button>
           </nav>
         </section>
+
+        <section class="admin-view hidden" id="inventory">
+          <div class="stats-grid module-stats-grid">
+            <article class="stat-card">
+              <span>منتجات تم جردها</span>
+              <strong id="inventoryTrackedProducts">٠</strong>
+              <small id="inventoryTrackedCaption">من ٠ منتج</small>
+            </article>
+            <article class="stat-card">
+              <span>المتاح بالمخزن</span>
+              <strong id="inventoryAvailableUnits">٠</strong>
+              <small>وحدة بعد خصم الحجوزات</small>
+            </article>
+            <article class="stat-card">
+              <span>منتجات منخفضة المخزون</span>
+              <strong id="inventoryLowStockProducts">٠</strong>
+              <small>بحسب حد إعادة الطلب لكل منتج</small>
+            </article>
+            <article class="stat-card">
+              <span>محجوز للطلبات</span>
+              <strong id="inventoryReservedUnits">٠</strong>
+              <small>يُصرف عند شحن الطلب</small>
+            </article>
+          </div>
+
+          <section class="panel module-panel">
+            <div class="panel-head orders-panel-head">
+              <div>
+                <h2>مخزون المنتجات</h2>
+                <p class="module-hint">أدخل رصيداً افتتاحياً لكل منتج قبل استقبال الطلبات. يُحجز المخزون عند حفظ الطلب ويُخصم عند الشحن أو يُحرر عند الإلغاء.</p>
+              </div>
+              <div class="orders-panel-actions">
+                <button class="btn btn-secondary" type="button" id="refreshInventory">تحديث</button>
+                <button class="btn btn-primary" type="button" id="addInventoryMovement">تسجيل حركة</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="module-table inventory-table">
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>المخزون الفعلي</th>
+                    <th>محجوز</th>
+                    <th>المتاح</th>
+                    <th>حد إعادة الطلب</th>
+                    <th>الحالة</th>
+                    <th>الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="inventoryEmpty">لا توجد منتجات لعرضها.</p>
+          </section>
+
+          <section class="panel module-panel">
+            <div class="panel-head orders-panel-head">
+              <div>
+                <h2>آخر حركات المخزن</h2>
+                <p class="module-hint" id="inventoryMonthSummary">ملخص حركات الشهر الحالي</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="module-table">
+                <thead>
+                  <tr>
+                    <th>التاريخ</th>
+                    <th>المنتج</th>
+                    <th>نوع الحركة</th>
+                    <th>التغيير</th>
+                    <th>ملاحظة</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryMovementsBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="inventoryMovementsEmpty">لا توجد حركات مسجلة حتى الآن.</p>
+          </section>
+        </section>
+
+        <section class="admin-view hidden" id="accounts">
+          <div class="stats-grid module-stats-grid accounts-stats-grid">
+            <article class="stat-card">
+              <span>إجمالي الإيرادات هذا الشهر</span>
+              <strong id="accountsIncomeMonth">٠ ج.م</strong>
+            </article>
+            <article class="stat-card">
+              <span>مردودات المبيعات هذا الشهر</span>
+              <strong id="accountsReturnsMonth">٠ ج.م</strong>
+            </article>
+            <article class="stat-card">
+              <span>المصروفات هذا الشهر</span>
+              <strong id="accountsExpensesMonth">٠ ج.م</strong>
+            </article>
+            <article class="stat-card">
+              <span>صافي الحساب هذا الشهر</span>
+              <strong id="accountsNetMonth">٠ ج.م</strong>
+            </article>
+            <article class="stat-card">
+              <span>الحركات المسجلة هذا الشهر</span>
+              <strong id="accountsEntriesMonth">٠</strong>
+            </article>
+          </div>
+
+          <section class="panel module-panel">
+            <div class="panel-head orders-panel-head">
+              <div>
+                <h2>ربحية المنتجات المسلّمة (تراكمي)</h2>
+                <p class="module-hint" id="productProfitHint">الربح = صافي قيمة المنتجات بعد المرتجعات − تكلفة الوحدات المباعة. تُعاد تكلفة المنتج الصالح إلى المخزون؛ والطلبات السابقة لتسجيل التكلفة تُحسب تقديرياً بالتكلفة الحالية.</p>
+              </div>
+              <strong class="product-profit-total" id="accountsProductProfitTotal">إجمالي الربح المحقق: —</strong>
+            </div>
+            <div class="table-wrap">
+              <table class="module-table product-profit-table">
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>سعر البيع</th>
+                    <th>تكلفة الشراء</th>
+                    <th>ربح الوحدة</th>
+                    <th>المسلّم</th>
+                    <th>المرتجع</th>
+                    <th>صافي المبيعات</th>
+                    <th>تكلفة البضاعة</th>
+                    <th>الربح المحقق</th>
+                  </tr>
+                </thead>
+                <tbody id="productProfitTableBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="productProfitEmpty">لا توجد منتجات مسلّمة بعد.</p>
+          </section>
+
+          <section class="panel module-panel">
+            <div class="panel-head orders-panel-head">
+              <div>
+                <h2>سجل الحسابات</h2>
+                <p class="module-hint">تُسجّل قيمة المنتجات عند التسليم، وتُحتسب المرتجعات كتخفيض للإيرادات لا كمصروف، دون رسوم الشحن. صافي الحساب = الإيرادات − مردودات المبيعات − المصروفات المسجلة.</p>
+              </div>
+              <div class="orders-panel-actions">
+                <button class="btn btn-secondary" type="button" id="refreshAccounts">تحديث</button>
+                <button class="btn btn-primary" type="button" id="addAccountEntry">إضافة حركة</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="module-table account-table">
+                <thead>
+                  <tr>
+                    <th>التاريخ</th>
+                    <th>النوع</th>
+                    <th>التصنيف</th>
+                    <th>طريقة الدفع</th>
+                    <th>الطلب / المرجع</th>
+                    <th>المبلغ</th>
+                    <th>ملاحظات</th>
+                  </tr>
+                </thead>
+                <tbody id="accountEntriesBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="accountEntriesEmpty">لا توجد حركات مالية مسجلة.</p>
+            <p class="module-footnote">يعرض الجدول آخر ٥٠ حركة. لا يمكن حذف الحركة المحفوظة؛ سجّل حركة تصحيحية عند الحاجة للحفاظ على السجل.</p>
+          </section>
+        </section>
+
+        <section class="admin-view hidden" id="inquiries">
+          <div class="stats-grid module-stats-grid inquiry-stats-grid">
+            <article class="stat-card"><span>إجمالي الاستفسارات</span><strong id="inquiriesTotal">٠</strong></article>
+            <article class="stat-card"><span>بانتظار المراجعة</span><strong id="inquiriesNew">٠</strong></article>
+            <article class="stat-card"><span>استفسارات هذا الشهر</span><strong id="inquiriesThisMonth">٠</strong></article>
+          </div>
+          <section class="panel module-panel">
+            <div class="panel-head orders-panel-head">
+              <div>
+                <h2>طلبات المنتجات</h2>
+                <p class="module-hint">افتح الاستفسار للاطلاع على التفاصيل وتحديث حالة المتابعة.</p>
+              </div>
+              <div class="orders-panel-actions inquiry-toolbar">
+                <select id="inquiryStatusFilter" aria-label="تصفية الاستفسارات">
+                  <option value="all">كل الحالات</option>
+                  <option value="new">جديد</option>
+                  <option value="reviewing">قيد المراجعة</option>
+                  <option value="answered">تم الرد</option>
+                  <option value="closed">مغلق</option>
+                </select>
+                <button class="btn btn-secondary" type="button" id="refreshInquiries">تحديث</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="module-table inquiry-table">
+                <thead><tr><th>المنتج المطلوب</th><th>تفاصيل مختصرة</th><th>تاريخ الاستفسار</th><th>الحالة</th><th>التفاصيل</th></tr></thead>
+                <tbody id="inquiriesTableBody"></tbody>
+              </table>
+            </div>
+            <p class="orders-empty hidden" id="inquiriesEmpty">لا توجد استفسارات في هذه القائمة.</p>
+            <nav class="orders-pagination hidden" id="inquiriesPagination" aria-label="صفحات الاستفسارات">
+              <button class="btn btn-secondary" id="previousInquiriesPage" type="button">السابق</button>
+              <span id="inquiriesPageStatus" aria-live="polite">عرض ٠–٠ من ٠</span>
+              <button class="btn btn-secondary" id="nextInquiriesPage" type="button">التالي</button>
+            </nav>
+          </section>
+        </section>
+
+        <section class="admin-view hidden" id="analytics">
+          <section class="panel analytics-controls">
+            <div>
+              <h2>نظرة شاملة على النشاط</h2>
+              <p class="module-hint">المبيعات والربح من الطلبات المسلّمة بعد خصم المرتجعات، وفق تاريخ إنشاء الطلب. صافي الحسابات وفق تاريخ القيد المالي.</p>
+            </div>
+            <div class="orders-panel-actions analytics-toolbar">
+              <label for="analyticsRange">الفترة</label>
+              <select id="analyticsRange">
+                <option value="7d">آخر ٧ أيام</option>
+                <option value="30d" selected>آخر ٣٠ يوماً</option>
+                <option value="90d">آخر ٩٠ يوماً</option>
+                <option value="365d">آخر ١٢ شهراً</option>
+                <option value="all">كل الفترات</option>
+              </select>
+              <button class="btn btn-secondary" type="button" id="refreshAnalytics">تحديث التحليلات</button>
+            </div>
+          </section>
+
+          <div class="stats-grid analytics-stats-grid">
+            <article class="stat-card"><span>صافي مبيعات المنتجات</span><strong id="analyticsNetSales">—</strong><small>بعد خصم المرتجعات</small></article>
+            <article class="stat-card"><span>الربح الإجمالي</span><strong id="analyticsGrossProfit">—</strong><small id="analyticsProfitNote">بعد تكلفة المنتجات</small></article>
+            <article class="stat-card"><span>صافي الحسابات</span><strong id="analyticsAccountNet">—</strong><small>الإيرادات − المرتجعات − المصروفات</small></article>
+            <article class="stat-card"><span>طلبات تم تسليمها</span><strong id="analyticsDeliveredOrders">٠</strong><small id="analyticsOrdersCaption">من ٠ طلب</small></article>
+            <article class="stat-card"><span>متوسط الطلب المسلّم</span><strong id="analyticsAverageOrder">—</strong><small>قيمة المنتجات فقط</small></article>
+            <article class="stat-card"><span>عملاء فريدون</span><strong id="analyticsCustomers">٠</strong><small id="analyticsRepeatCustomers">٠ عميل متكرر</small></article>
+            <article class="stat-card"><span>حالة الطلبات</span><strong id="analyticsOpenOrders">٠ مفتوح</strong><small id="analyticsCancelledOrders">٠ ملغي · معدل المرتجعات ٠٪</small></article>
+            <article class="stat-card"><span>استفسارات المنتجات</span><strong id="analyticsInquiryCount">٠</strong><small id="analyticsNewInquiries">٠ بانتظار المراجعة</small></article>
+          </div>
+
+          <section class="panel module-panel analytics-panel">
+            <div class="panel-head"><div><h2>اتجاه الطلبات والمبيعات</h2><p class="module-hint">قيمة المنتجات المسلّمة بحسب تاريخ إنشاء الطلب.</p></div></div>
+            <div class="analytics-trend" id="analyticsTrend" role="img" aria-label="مخطط الطلبات والمبيعات خلال الفترة"></div>
+            <p class="orders-empty hidden" id="analyticsTrendEmpty">لا توجد بيانات لهذه الفترة.</p>
+          </section>
+
+          <div class="analytics-two-column">
+            <section class="panel module-panel analytics-panel">
+              <div class="panel-head"><div><h2>أفضل المنتجات أداءً</h2><p class="module-hint">مرتبة حسب صافي المبيعات.</p></div></div>
+              <div class="table-wrap"><table class="module-table analytics-table"><thead><tr><th>المنتج</th><th>المباع</th><th>المرتجع</th><th>المتاح الآن</th><th>صافي المبيعات</th><th>الربح</th></tr></thead><tbody id="analyticsProductsBody"></tbody></table></div>
+              <p class="orders-empty hidden" id="analyticsProductsEmpty">لا توجد مبيعات مسلّمة لهذه الفترة.</p>
+            </section>
+            <section class="panel module-panel analytics-panel">
+              <div class="panel-head"><div><h2>الأداء حسب الفئة</h2><p class="module-hint">مقارنة المبيعات والربح بين فئات المنتجات.</p></div></div>
+              <div class="table-wrap"><table class="module-table analytics-table"><thead><tr><th>الفئة</th><th>الوحدات المسلّمة</th><th>صافي المبيعات</th><th>الربح</th></tr></thead><tbody id="analyticsCategoriesBody"></tbody></table></div>
+              <p class="orders-empty hidden" id="analyticsCategoriesEmpty">لا توجد بيانات فئات لهذه الفترة.</p>
+            </section>
+          </div>
+
+          <section class="panel module-panel analytics-panel">
+            <div class="panel-head"><div><h2>العملاء والهواتف الأكثر نشاطاً</h2><p class="module-hint">تظهر بيانات العملاء للإدارة المصرح لها فقط، مرتبة حسب صافي قيمة المنتجات المسلّمة.</p></div></div>
+            <div class="table-wrap"><table class="module-table analytics-customer-table"><thead><tr><th>العميل</th><th>رقم الهاتف</th><th>الطلبات</th><th>طلبات مسلّمة</th><th>صافي المشتريات</th><th>آخر طلب</th></tr></thead><tbody id="analyticsCustomersBody"></tbody></table></div>
+            <p class="orders-empty hidden" id="analyticsCustomersEmpty">لا توجد طلبات لهذه الفترة.</p>
+          </section>
+
+          <section class="panel module-panel analytics-panel">
+            <div class="panel-head"><div><h2>أكثر المنتجات طلباً في الاستفسارات</h2><p class="module-hint">تجميع للأسماء المتشابهة في الكتابة بعد إزالة المسافات الزائدة.</p></div></div>
+            <div class="table-wrap"><table class="module-table inquiry-analytics-table"><thead><tr><th>المنتج المطلوب</th><th>عدد الاستفسارات</th><th>الجديد</th><th>آخر استفسار</th></tr></thead><tbody id="analyticsInquiriesBody"></tbody></table></div>
+            <p class="orders-empty hidden" id="analyticsInquiriesEmpty">لا توجد استفسارات لهذه الفترة.</p>
+          </section>
+
+          <section class="panel module-panel analytics-panel">
+            <div class="panel-head"><div><h2>حالة المخزون الآن</h2><p class="module-hint">لقطة حالية للمخزون المتاح والمحجوز، بصرف النظر عن الفترة المحددة أعلاه.</p></div></div>
+            <div class="stats-grid analytics-stock-grid">
+              <article class="stat-card"><span>وحدات متاحة</span><strong id="analyticsAvailableUnits">٠</strong></article>
+              <article class="stat-card"><span>وحدات محجوزة</span><strong id="analyticsReservedUnits">٠</strong></article>
+              <article class="stat-card"><span>منتجات منخفضة المخزون</span><strong id="analyticsLowStock">٠</strong></article>
+              <article class="stat-card"><span>منتجات نفد مخزونها</span><strong id="analyticsOutOfStock">٠</strong></article>
+            </div>
+          </section>
+        </section>
       </main>
     </div>
+
+    <dialog class="product-dialog inquiry-details-dialog" id="inquiryDetailsDialog" aria-labelledby="inquiryDetailsTitle">
+      <div class="product-dialog-head">
+        <div><span class="eyebrow">استفسار منتج</span><h2 id="inquiryDetailsTitle">تفاصيل الاستفسار</h2></div>
+        <button class="icon-btn" id="closeInquiryDetails" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="product-dialog-content">
+        <form id="inquiryDetailsForm">
+          <label class="inquiry-detail-field">المنتج المطلوب
+            <input id="inquiryDetailsProduct" type="text" readonly />
+          </label>
+          <label class="inquiry-detail-field">التفاصيل الإضافية
+            <textarea id="inquiryDetailsDescription" rows="5" readonly></textarea>
+          </label>
+          <p class="module-hint" id="inquiryDetailsDate"></p>
+          <label class="inquiry-detail-field">حالة المتابعة
+            <select id="inquiryDetailsStatus" required>
+              <option value="new">جديد</option>
+              <option value="reviewing">قيد المراجعة</option>
+              <option value="answered">تم الرد</option>
+              <option value="closed">مغلق</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="saveInquiryStatus" type="submit">حفظ الحالة</button>
+            <button class="btn btn-secondary" id="cancelInquiryDetails" type="button">إغلاق</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="product-dialog" id="inventoryDialog" aria-labelledby="inventoryDialogTitle">
+      <div class="product-dialog-head">
+        <h2 id="inventoryDialogTitle">تسجيل حركة مخزن</h2>
+        <button class="icon-btn" id="closeInventoryDialog" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="product-dialog-content">
+        <form id="inventoryMovementForm">
+          <div class="field-grid">
+            <label>
+              المنتج
+              <select id="inventoryProduct" required></select>
+            </label>
+            <label>
+              نوع الحركة
+              <select id="inventoryMovementType" required>
+                <option value="opening">جرد افتتاحي</option>
+                <option value="received">استلام كمية</option>
+                <option value="issued">صرف كمية</option>
+                <option value="damaged">تالف</option>
+                <option value="count">تعديل بعد الجرد</option>
+              </select>
+            </label>
+            <label>
+              <span id="inventoryQuantityLabel">الكمية</span>
+              <input id="inventoryQuantity" type="number" min="0" step="1" inputmode="numeric" required />
+            </label>
+            <label>
+              حد إعادة الطلب
+              <input id="inventoryReorderLevel" type="number" min="0" step="1" inputmode="numeric" value="0" required />
+            </label>
+            <label class="full-span">
+              ملاحظة (اختياري)
+              <input id="inventoryMovementNotes" type="text" maxlength="500" placeholder="مثال: استلام فاتورة المورد ١٢٣" />
+            </label>
+          </div>
+          <p class="module-hint" id="inventoryMovementHint" aria-live="polite"></p>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" id="saveInventoryMovement">حفظ الحركة</button>
+            <button class="btn btn-secondary" id="cancelInventoryMovement" type="button">إلغاء</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="product-dialog" id="accountEntryDialog" aria-labelledby="accountEntryDialogTitle">
+      <div class="product-dialog-head">
+        <h2 id="accountEntryDialogTitle">إضافة حركة مالية</h2>
+        <button class="icon-btn" id="closeAccountEntryDialog" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="product-dialog-content">
+        <form id="accountEntryForm">
+          <div class="field-grid">
+            <label>
+              نوع الحركة
+              <select id="accountEntryType" required>
+                <option value="income">مبلغ مقبوض</option>
+                <option value="expense">مصروف</option>
+              </select>
+            </label>
+            <label>
+              التصنيف
+              <select id="accountEntryCategory" required></select>
+            </label>
+            <label>
+              المبلغ (ج.م)
+              <input id="accountEntryAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required />
+            </label>
+            <label>
+              طريقة الدفع
+              <select id="accountEntryPaymentMethod" required>
+                <option value="cash">نقدي</option>
+                <option value="bank_transfer">تحويل بنكي</option>
+                <option value="mobile_wallet">محفظة إلكترونية</option>
+                <option value="other">أخرى</option>
+              </select>
+            </label>
+            <label class="full-span">
+              ربط بطلب (اختياري)
+              <select id="accountEntryOrder">
+                <option value="">بدون ربط بطلب</option>
+              </select>
+            </label>
+            <label>
+              التاريخ
+              <input id="accountEntryDate" type="date" required />
+            </label>
+            <label>
+              المرجع (اختياري)
+              <input id="accountEntryReference" type="text" maxlength="120" placeholder="رقم الطلب أو اسم المورد" />
+            </label>
+            <label class="full-span">
+              ملاحظات (اختياري)
+              <input id="accountEntryNotes" type="text" maxlength="500" />
+            </label>
+          </div>
+          <p class="module-hint">تُحفظ الحركة كسجل دائم. لتصحيحها أضف حركة مقابلة مع توضيح السبب.</p>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" id="saveAccountEntry">حفظ الحركة</button>
+            <button class="btn btn-secondary" id="cancelAccountEntry" type="button">إلغاء</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
 
     <dialog class="product-dialog" id="productDialog" aria-labelledby="formTitle">
       <div class="product-dialog-head">
@@ -229,6 +643,16 @@
             <label>
               السعر (ج.م)
               <input id="price" name="price" type="number" min="1" step="1" required />
+            </label>
+
+            <label>
+              تكلفة الشراء للوحدة (ج.م)
+              <input id="purchaseCost" name="purchaseCost" type="number" min="0" step="0.01" inputmode="decimal" required />
+            </label>
+
+            <label>
+              الربح للوحدة
+              <output class="unit-profit-preview" id="productUnitProfitPreview">أدخل سعر البيع وتكلفة الشراء</output>
             </label>
 
             <label>
@@ -281,6 +705,40 @@
         <button class="icon-btn" id="closeOrderDetails" type="button" aria-label="إغلاق">×</button>
       </div>
       <div class="order-details-content" id="orderDetailsContent"></div>
+    </dialog>
+
+    <dialog class="product-dialog order-return-dialog" id="orderReturnDialog" aria-labelledby="orderReturnTitle">
+      <div class="product-dialog-head">
+        <h2 id="orderReturnTitle">تسجيل مرتجع</h2>
+        <button class="icon-btn" id="closeOrderReturn" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="product-dialog-content">
+        <form id="orderReturnForm">
+          <p class="module-hint" id="orderReturnIntro"></p>
+          <div class="return-items" id="orderReturnItems"></div>
+          <button class="btn btn-secondary return-fill-all" id="returnAllRemaining" type="button">إرجاع كل الكميات المتبقية</button>
+          <p class="return-refund-preview" id="orderReturnRefundPreview" aria-live="polite"></p>
+          <div class="field-grid">
+            <label>
+              طريقة رد المبلغ
+              <select id="orderReturnPaymentMethod" required>
+                <option value="other">أخرى</option>
+                <option value="cash">نقدي</option>
+                <option value="bank_transfer">تحويل بنكي</option>
+                <option value="mobile_wallet">محفظة إلكترونية</option>
+              </select>
+            </label>
+            <label class="full-span">
+              ملاحظة (اختياري)
+              <input id="orderReturnNotes" type="text" maxlength="500" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="saveOrderReturn" type="submit">حفظ المرتجع</button>
+            <button class="btn btn-secondary" id="cancelOrderReturn" type="button">إلغاء</button>
+          </div>
+        </form>
+      </div>
     </dialog>
 
     <dialog class="status-whatsapp-dialog" id="statusWhatsAppDialog" aria-labelledby="statusWhatsAppTitle">

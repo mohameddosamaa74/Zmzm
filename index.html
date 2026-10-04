@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="src/css/navigation-fit.css" />
     <link rel="stylesheet" href="src/css/footer-contact.css" />
     <link rel="stylesheet" href="src/css/section-headings.css" />
+    <link rel="stylesheet" href="src/css/product-inquiry.css" />
     <script type="module" src="src/js/home-refresh.js"></script>
   </head>
   <body>
@@ -102,6 +103,18 @@
       </div></section>
 
       <section class="section products-section" id="shop"><div class="container"><div class="section-head"><div><span class="kicker">منتجاتنا</span><h2>تصفح منتجاتنا</h2></div><div class="filter-pills" id="filterBar"><button class="active" data-filter="all">الكل</button><button data-filter="boards">قواعد كيك</button><button data-filter="boxes">علب الكيك</button><button data-filter="cupcakes">كب كيك</button><button data-filter="packaging">تغليف</button></div></div><div class="catalog-toolbar"><span id="resultsCount">عرض ٨ منتجات</span><select id="sortSelect" aria-label="ترتيب المنتجات"><option value="default">الترتيب الافتراضي</option><option value="low">السعر: الأقل أولاً</option><option value="high">السعر: الأعلى أولاً</option><option value="new">الأحدث</option></select></div><div class="product-grid" id="productGrid"></div><button class="load-more" id="loadMore">عرض المزيد</button></div></section>
+      <section class="custom-needs-section" aria-labelledby="customNeedsTitle">
+        <div class="container">
+          <div class="custom-needs-card">
+            <div class="custom-needs-copy">
+              <span class="kicker">طلب خاص</span>
+              <h2 id="customNeedsTitle">لم تجد ما تبحث عنه؟</h2>
+              <p>أرسل لنا اسم المنتج أو المقاس المطلوب، وسنراجع طلبك.</p>
+            </div>
+            <button class="custom-needs-submit" id="openProductInquiry" type="button">أرسل استفسارك</button>
+          </div>
+        </div>
+      </section>
       <section class="bulk-section"><div class="container bulk-grid"><div><span class="kicker">لأصحاب الأعمال</span><h2>تطلب بكميات كبيرة؟<br /><em>خلّينا نساعدك.</em></h2><p>أسعار خاصة، تجهيز منتظم وحلول تغليف مصممة لعلامتك التجارية.</p>      <button type="button" class="btn btn-primary bulk-quote-btn">اطلب تسعير الجملة <span>←</span></button></div></section>
       <section class="section why-section" id="about"><div class="container"><div class="section-head centered"><div><span class="kicker">لماذا زمزم؟</span><h2>نعتني بالتفاصيل الصغيرة</h2><p>لأن تجربة عميلك تبدأ قبل أول قضمة.</p></div></div>
         <div class="why-grid">
@@ -120,6 +133,31 @@
         </div>
       </div></section>
     </main>
+
+    <dialog class="product-inquiry-dialog" id="productInquiryDialog" aria-labelledby="productInquiryTitle" aria-describedby="productInquiryHint">
+      <div class="product-inquiry-head">
+        <div>
+          <span class="kicker">طلب منتج</span>
+          <h2 id="productInquiryTitle">ما المنتج الذي تبحث عنه؟</h2>
+        </div>
+        <button class="product-inquiry-close" id="closeProductInquiry" type="button" aria-label="إغلاق النافذة">×</button>
+      </div>
+      <form class="product-inquiry-form" id="productInquiryForm">
+        <p id="productInquiryHint">اكتب اسم المنتج المطلوب، ويمكنك إضافة المقاس أو أي تفاصيل تساعدنا.</p>
+        <div class="product-inquiry-honeypot" aria-hidden="true">
+          <label for="inquiryWebsite">اترك هذا الحقل فارغاً</label>
+          <input id="inquiryWebsite" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+        <label for="inquiryProductName">اسم المنتج <span aria-hidden="true">*</span></label>
+        <input id="inquiryProductName" name="product_name" type="text" maxlength="160" autocomplete="off" placeholder="مثال: علبة كيك مقاس ٣٠×٣٠" required />
+        <label for="inquiryDescription">تفاصيل إضافية <small>(اختياري)</small></label>
+        <textarea id="inquiryDescription" name="description" rows="4" maxlength="1200" placeholder="اللون أو المقاس أو الكمية المطلوبة"></textarea>
+        <div class="product-inquiry-actions">
+          <button class="btn btn-primary" id="submitProductInquiry" type="submit">إرسال الطلب</button>
+          <button class="btn btn-secondary" id="cancelProductInquiry" type="button">إلغاء</button>
+        </div>
+      </form>
+    </dialog>
 
     <footer class="site-footer" id="contact">
       <div class="container footer-grid footer-contact-grid">
@@ -157,7 +195,8 @@
       </div>
     </footer>
     <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><small id="cartDeliveryNote" class="delivery-note"></small><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
-    <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="تفاصيل المنتج"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق التفاصيل">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
+    <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="طلب عرض سعر بالجملة"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق النافذة">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
 <script type="module" src="script.js"></script>
+<script type="module" src="src/js/product-inquiry.js"></script>
 </body>
 </html>
