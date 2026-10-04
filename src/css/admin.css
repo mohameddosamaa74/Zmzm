@@ -345,6 +345,27 @@ button { cursor: pointer; }
   gap: 12px;
 }
 
+.orders-panel-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orders-panel-actions .btn.is-loading::before {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-left-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: order-refresh-spin 0.7s linear infinite;
+}
+
+@keyframes order-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
 .product-dialog {
   width: min(760px, calc(100% - 32px));
   max-width: none;
@@ -584,7 +605,33 @@ button { cursor: pointer; }
 }
 
 .order-status {
+  appearance: none;
   min-width: 130px;
+  min-height: 44px;
+  padding: 9px 12px 9px 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%236e7d93' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 12px center;
+  background-size: 16px;
+  font-weight: 700;
+}
+
+.order-status-pending {
+  border-color: #f3d27a;
+  background-color: #fff7d6;
+  color: #815800;
+}
+
+.order-status-processing {
+  border-color: #9cc5fa;
+  background-color: #e8f2ff;
+  color: #1455a0;
+}
+
+.order-status-shipped {
+  border-color: #9bd8b1;
+  background-color: #e8f8ed;
+  color: #17653a;
 }
 
 .panel-head h2 {

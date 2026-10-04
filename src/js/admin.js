@@ -229,7 +229,7 @@ function renderOrders() {
         <td>${escapeHtml(order.notes || "—")}</td>
         <td>${formatMoney(order.total)}</td>
         <td>
-          <select class="order-status" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
+          <select class="order-status order-status-${escapeHtml(order.status)}" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
             ${renderOrderStatusOptions(order)}
           </select>
         </td>
@@ -260,7 +260,7 @@ function renderQuickOrders() {
         <td dir="ltr">${escapeHtml(order.phone)}</td>
         <td>${formatMoney(order.total)}</td>
         <td>
-          <select class="order-status" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
+          <select class="order-status order-status-${escapeHtml(order.status)}" data-order-id="${escapeHtml(order.id)}" data-current-status="${escapeHtml(order.status)}" aria-label="حالة الطلب">
             ${renderOrderStatusOptions(order)}
           </select>
         </td>
@@ -274,15 +274,22 @@ function renderQuickOrders() {
   document.getElementById("quickOrdersEmpty").classList.toggle("hidden", recentOrders.length > 0);
 }
 
-async function loadOrders() {
+async function loadOrders({ announceNewOrders = false } = {}) {
   if (!supabaseClient) {
     showToast(supabaseConfigurationError);
     return;
   }
 
-  const refreshButton = document.getElementById("refreshOrders");
-  refreshButton.disabled = true;
+  const refreshButtons = [
+    document.getElementById("refreshOrders"),
+    document.getElementById("refreshQuickOrders"),
+  ];
+  for (const button of refreshButtons) {
+    button.disabled = true;
+    button.classList.add("is-loading");
+  }
   try {
+    const existingOrderIds = new Set(orders.map((order) => String(order.id)));
     const { data, error } = await supabaseClient
       .from("orders")
       .select("id,created_at,first_name,last_name,phone,governorate,city,address,building,floor,apartment,notes,items,subtotal,shipping,total,status")
@@ -290,11 +297,20 @@ async function loadOrders() {
     if (error) throw error;
     orders = data || [];
     renderOrders();
+    if (announceNewOrders) {
+      const newOrdersCount = orders.filter((order) => !existingOrderIds.has(String(order.id))).length;
+      showToast(newOrdersCount === 0
+        ? "لا توجد طلبات جديدة"
+        : `تم العثور على ${newOrdersCount.toLocaleString("ar-EG")} من الطلبات الجديدة`);
+    }
   } catch (error) {
     console.error("تعذر تحميل الطلبات من Supabase.", error);
     showToast("تعذر تحميل الطلبات. تأكد من تطبيق إعداد جدول الطلبات في Supabase.");
   } finally {
-    refreshButton.disabled = false;
+    for (const button of refreshButtons) {
+      button.disabled = false;
+      button.classList.remove("is-loading");
+    }
   }
 }
 
@@ -478,7 +494,8 @@ productDialog.addEventListener("click", (event) => {
 
 productDialog.addEventListener("cancel", () => resetForm());
 
-document.getElementById("refreshOrders").addEventListener("click", loadOrders);
+document.getElementById("refreshOrders").addEventListener("click", () => loadOrders({ announceNewOrders: true }));
+document.getElementById("refreshQuickOrders").addEventListener("click", () => loadOrders({ announceNewOrders: true }));
 
 function renderOrderDetails(order) {
   const items = Array.isArray(order.items) ? order.items : [];
