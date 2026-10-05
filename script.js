@@ -320,24 +320,37 @@ function productSpecEntries(product) {
     }));
 }
 
+function normalizeSearchText(value) {
+  return normalizeDigits(value)
+    .normalize("NFKC")
+    .toLocaleLowerCase("ar-EG")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 function matchingProducts(query) {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) return [];
+  const normalizedQuery = normalizeSearchText(query);
+  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (queryTerms.length === 0) return [];
 
   return products.filter((product) => {
     const specs = productSpecEntries(product)
       .flatMap(({ label, value }) => [label, value])
       .join(" ");
-    const searchableText = [
+    const searchableText = normalizeSearchText([
       product.name,
       product.meta,
       product.id,
       product.category,
       categorySearchTerms[product.category],
       specs,
-    ].join(" ").toLocaleLowerCase();
+    ].join(" "));
 
-    return searchableText.includes(normalizedQuery);
+    return searchableText.includes(normalizedQuery) ||
+      queryTerms.every((term) => searchableText.includes(term));
   });
 }
 

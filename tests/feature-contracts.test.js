@@ -20,6 +20,14 @@ test("out-of-stock cards are dimmed and the cart cannot exceed available quantit
   assert.match(styles, /\.is-out-of-stock/);
 });
 
+test("product search matches every normalized query term", async () => {
+  const script = await read("script.js");
+  assert.match(script, /function normalizeSearchText\(value\)/);
+  assert.match(script, /normalizeDigits\(value\)/);
+  assert.match(script, /replace\(\/\[أإآٱ\]\/g, "ا"\)/);
+  assert.match(script, /queryTerms\.every\(\(term\) => searchableText\.includes\(term\)\)/);
+});
+
 test("checkout refreshes stock and blocks unavailable or over-limit cart items", async () => {
   const checkout = await read("src/js/checkout.js");
   assert.match(checkout, /get_public_product_availability/);
