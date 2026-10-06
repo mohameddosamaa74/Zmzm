@@ -40,6 +40,9 @@ let inventoryRows = [];
 let productInquiries = [];
 let selectedInquiry = null;
 let isAdmin = false;
+let productReorderBusy = false;
+let draggedProductId = null;
+let productOrderingEnabled = false;
 let returnOrder = null;
 let returnRequestKey = "";
 const ORDERS_PAGE_SIZE = 50;
@@ -154,7 +157,14 @@ function normalizeProduct(row) {
     specs: row.specs || {},
     image: String(row.image || ""),
     type: String(row.type || "box"),
+    sortOrder: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : Number(row.id || 0),
   };
+}
+
+function isMissingProductSortColumn(error) {
+  const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+  return error?.code === "42703" || error?.code === "PGRST204" ||
+    message.includes("sort_order");
 }
 
 function updateAuthUI() {
@@ -398,8 +408,22 @@ function inventoryErrorMessage(error) {
 }
 
 function renderTable() {
-  productTableBody.innerHTML = products.map((product) => `
-    <tr>
+  const orderHint = document.querySelector(".product-sort-hint");
+  if (orderHint) {
+    orderHint.textContent = productOrderingEnabled
+      ? "اسحب مقبض الترتيب بجوار المنتج لتغيير مكانه. سيظهر الترتيب نفسه في المتجر."
+      : "لتفعيل ترتيب المنتجات، شغّل ملف تحديث ترتيب المنتجات في Supabase أولاً.";
+  }
+  productTableBody.innerHTML = products.map((product, index) => `
+    <tr data-product-row="${product.id}">
+      <td class="product-sort-cell">
+        <button class="product-drag-handle" type="button" draggable="${productOrderingEnabled}" data-sort-handle data-id="${product.id}" aria-label="اسحب لترتيب ${escapeHtml(product.name)}" ${productOrderingEnabled ? "" : "disabled"}>⠿</button>
+        <span class="product-position">${index + 1}</span>
+        <span class="product-sort-buttons">
+          <button class="product-sort-step" type="button" data-action="move-up" data-id="${product.id}" aria-label="تحريك ${escapeHtml(product.name)} للأعلى" ${index === 0 || productReorderBusy || !productOrderingEnabled ? "disabled" : ""}>↑</button>
+          <button class="product-sort-step" type="button" data-action="move-down" data-id="${product.id}" aria-label="تحريك ${escapeHtml(product.name)} للأسفل" ${index === products.length - 1 || productReorderBusy || !productOrderingEnabled ? "disabled" : ""}>↓</button>
+        </span>
+      </td>
       <td><strong>${escapeHtml(product.name)}</strong></td>
       <td>${escapeHtml(categoryNames[product.category] || product.category)}</td>
       <td>${formatMoney(product.price)}</td>
@@ -418,6 +442,42 @@ function renderTable() {
   `).join("");
 
   renderStats();
+}
+
+async function saveProductOrder(productIds) {
+  if (productReorderBusy || !supabaseClient) return;
+  if (!productOrderingEnabled) {
+    showToast("شغّل تحديث ترتيب المنتجات في Supabase أولاً.");
+    renderTable();
+    return;
+  }
+  const currentIds = products.map((product) => product.id);
+  const currentIdSet = new Set(currentIds);
+  if (productIds.length !== currentIds.length || new Set(productIds).size !== currentIds.length ||
+      productIds.some((id) => !currentIdSet.has(id))) {
+    renderTable();
+    return;
+  }
+
+  productReorderBusy = true;
+  productTableBody.classList.add("is-saving-order");
+  try {
+    const { error } = await supabaseClient.rpc("reorder_products", { p_product_ids: productIds });
+    if (error) throw error;
+
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    products = productIds.map((id, index) => ({ ...productsById.get(id), sortOrder: index }));
+    showToast("تم حفظ ترتيب المنتجات");
+  } catch (error) {
+    console.error("تعذر حفظ ترتيب المنتجات.", error);
+    showToast(error?.code === "PGRST202" || error?.code === "42883"
+      ? "شغّل تحديث ترتيب المنتجات في Supabase أولاً."
+      : "تعذر حفظ الترتيب. أعد المحاولة بعد قليل.");
+  } finally {
+    productReorderBusy = false;
+    productTableBody.classList.remove("is-saving-order");
+    renderTable();
+  }
 }
 
 function setImagePreview(source) {
@@ -470,10 +530,16 @@ async function uploadProductImage(imageDataUrl) {
 }
 
 async function loadProducts() {
-  const [productsResult, costsResult] = await Promise.all([
-    supabaseClient.from("products").select(PRODUCT_FIELDS).order("id", { ascending: false }),
+  const [orderedProductsResult, costsResult] = await Promise.all([
+    supabaseClient.from("products").select(`${PRODUCT_FIELDS},sort_order`).order("sort_order", { ascending: true }).order("id", { ascending: true }),
     supabaseClient.from("product_costs").select("product_id,unit_cost"),
   ]);
+  let productsResult = orderedProductsResult;
+  productOrderingEnabled = !orderedProductsResult.error;
+  if (isMissingProductSortColumn(orderedProductsResult.error)) {
+    productOrderingEnabled = false;
+    productsResult = await supabaseClient.from("products").select(PRODUCT_FIELDS).order("id", { ascending: true });
+  }
   if (productsResult.error) throw productsResult.error;
   if (costsResult.error) throw costsResult.error;
   const costsByProduct = new Map((costsResult.data || []).map((row) => [
@@ -1132,6 +1198,17 @@ productTableBody.addEventListener("click", async (event) => {
   const product = products.find((item) => item.id === Number(button.dataset.id));
   if (!product) return;
 
+  if (button.dataset.action === "move-up" || button.dataset.action === "move-down") {
+    const productIndex = products.findIndex((item) => item.id === product.id);
+    const targetIndex = productIndex + (button.dataset.action === "move-up" ? -1 : 1);
+    if (targetIndex < 0 || targetIndex >= products.length) return;
+    const nextProducts = [...products];
+    nextProducts.splice(productIndex, 1);
+    nextProducts.splice(targetIndex, 0, product);
+    await saveProductOrder(nextProducts.map((item) => item.id));
+    return;
+  }
+
   if (button.dataset.action === "edit") {
     fillForm(product);
     productDialog.showModal();
@@ -1153,6 +1230,50 @@ productTableBody.addEventListener("click", async (event) => {
   renderTable();
   resetForm();
   showToast("تم حذف المنتج");
+});
+
+productTableBody.addEventListener("dragstart", (event) => {
+  const handle = event.target.closest("[data-sort-handle]");
+  if (!handle || productReorderBusy) {
+    event.preventDefault();
+    return;
+  }
+  draggedProductId = Number(handle.dataset.id);
+  handle.closest("tr")?.classList.add("product-row-dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", String(draggedProductId));
+});
+
+productTableBody.addEventListener("dragover", (event) => {
+  if (draggedProductId === null) return;
+  const targetRow = event.target.closest("tr[data-product-row]");
+  const draggedRow = productTableBody.querySelector(`tr[data-product-row="${draggedProductId}"]`);
+  if (!targetRow || !draggedRow || targetRow === draggedRow) return;
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  productTableBody.querySelectorAll(".product-row-drop-target").forEach((row) => row.classList.remove("product-row-drop-target"));
+  targetRow.classList.add("product-row-drop-target");
+  const placeAfter = event.clientY > targetRow.getBoundingClientRect().top + targetRow.offsetHeight / 2;
+  productTableBody.insertBefore(draggedRow, placeAfter ? targetRow.nextElementSibling : targetRow);
+});
+
+productTableBody.addEventListener("drop", (event) => {
+  if (draggedProductId === null) return;
+  event.preventDefault();
+  const productIds = [...productTableBody.querySelectorAll("tr[data-product-row]")]
+    .map((row) => Number(row.dataset.productRow));
+  draggedProductId = null;
+  productTableBody.querySelectorAll(".product-row-dragging, .product-row-drop-target")
+    .forEach((row) => row.classList.remove("product-row-dragging", "product-row-drop-target"));
+  void saveProductOrder(productIds);
+});
+
+productTableBody.addEventListener("dragend", () => {
+  draggedProductId = null;
+  productTableBody.querySelectorAll(".product-row-dragging, .product-row-drop-target")
+    .forEach((row) => row.classList.remove("product-row-dragging", "product-row-drop-target"));
+  if (!productReorderBusy) renderTable();
 });
 
 productForm.addEventListener("submit", async (event) => {
@@ -1231,7 +1352,7 @@ productForm.addEventListener("submit", async (event) => {
     savedProduct.purchaseCost = purchaseCost;
     products = productId
       ? products.map((product) => product.id === savedProduct.id ? savedProduct : product)
-      : [savedProduct, ...products];
+      : [...products, savedProduct];
     renderTable();
     resetForm();
     showToast(productId ? "تم تحديث المنتج" : "تمت إضافة المنتج");

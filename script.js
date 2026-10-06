@@ -118,10 +118,18 @@ async function loadProductsFromSupabase() {
   }
 
   try {
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from("products")
-      .select("id,name,category,price,old_price,tag,meta,image,type,specs")
+      .select("id,name,category,price,old_price,tag,meta,image,type,specs,sort_order")
+      .order("sort_order", { ascending: true })
       .order("id", { ascending: true });
+
+    if (error && (error.code === "42703" || error.code === "PGRST204" || /sort_order/i.test(error.message || ""))) {
+      ({ data, error } = await supabaseClient
+        .from("products")
+        .select("id,name,category,price,old_price,tag,meta,image,type,specs")
+        .order("id", { ascending: true }));
+    }
 
     if (error) {
       console.error("Supabase load failed:", error.message);

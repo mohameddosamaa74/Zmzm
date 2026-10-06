@@ -426,6 +426,89 @@ button { cursor: pointer; }
   min-width: 720px;
 }
 
+.product-sort-hint {
+  margin-bottom: 12px;
+}
+
+#products table {
+  min-width: 980px;
+}
+
+#productTableBody tr {
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+#productTableBody tr.product-row-dragging {
+  opacity: 0.45;
+}
+
+#productTableBody tr.product-row-drop-target {
+  background: #eef5ff;
+  box-shadow: inset 0 2px 0 #5d8fe8;
+}
+
+#productTableBody.is-saving-order {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.product-sort-cell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.product-drag-handle,
+.product-sort-step {
+  border: 1px solid #dbe5f3;
+  background: #f5f8fe;
+  color: #24466f;
+  cursor: grab;
+  font: inherit;
+}
+
+.product-drag-handle {
+  width: 32px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 21px;
+  line-height: 1;
+  vertical-align: middle;
+  touch-action: none;
+}
+
+.product-drag-handle:active {
+  cursor: grabbing;
+}
+
+.product-position {
+  display: inline-block;
+  min-width: 24px;
+  margin-inline: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.product-sort-buttons {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.product-sort-step {
+  width: 25px;
+  height: 27px;
+  padding: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.product-sort-step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .inventory-table {
   min-width: 900px;
 }
