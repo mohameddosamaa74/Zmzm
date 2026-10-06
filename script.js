@@ -470,7 +470,7 @@ function renderProducts() {
       <div class="product-info">
         <h3>${escapeHtml(product.name)}</h3>
 
-        <div class="product-meta">
+        <div class="product-meta product-description">
           ${escapeHtml(product.meta)}
         </div>
 
