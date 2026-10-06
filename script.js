@@ -61,6 +61,7 @@ function normalizeProduct(row) {
 }
 
 let products = [];
+let productModalQuantity = 0;
 let productsLoading = true;
 let productsLoadError = false;
 let productAvailabilityError = false;
@@ -86,7 +87,12 @@ function productCartQuantity(productId) {
 
 function productAtCartLimit(product) {
   return Number.isInteger(product.availableQuantity) &&
-    productCartQuantity(product.id) >= product.availableQuantity;
+    productCartQuantity(product.id) >= Math.min(product.availableQuantity, CART_ITEM_LIMIT);
+}
+
+function remainingProductQuantity(product) {
+  if (!Number.isInteger(product.availableQuantity)) return 0;
+  return Math.max(0, Math.min(product.availableQuantity, CART_ITEM_LIMIT) - productCartQuantity(product.id));
 }
 
 function productAvailabilityMessage(product) {
@@ -326,33 +332,6 @@ function productSpecEntries(product) {
       label: specLabels[key] || key,
       value: String(value),
     }));
-}
-
-function productShoppingNote(product) {
-  const notes = {
-    boards: [
-      "قاعدة أنيقة تكمل شكل الكيك عند التقديم.",
-      "اختيار مرتب لإبراز كعكتك في المناسبات.",
-      "تفصيلة عملية لعرض الكيك بشكل أجمل.",
-    ],
-    boxes: [
-      "علبة تكمل جمال الكيك وتجعله جاهزاً للتقديم.",
-      "تغليف مرتب يضيف لمسة أنيقة لمناسباتك.",
-      "اختيار عملي لتجهيز الكيك وتقديمه بصورة جميلة.",
-    ],
-    cupcakes: [
-      "ترتيب أجمل لقطع الكب كيك في مناسباتك.",
-      "طريقة أنيقة لتقديم الكب كيك للضيوف.",
-      "اختيار عملي يساعدك على تنسيق الكب كيك.",
-    ],
-    packaging: [
-      "لمسة بسيطة تكمل تنسيق وتغليف طلبك.",
-      "تفاصيل التغليف تضيف جمالاً لتجهيزاتك.",
-      "أضف لمسة أنيقة لتغليف الحلويات والهدايا.",
-    ],
-  };
-  const choices = notes[product.category] || notes.boxes;
-  return choices[Math.abs(product.id) % choices.length];
 }
 
 function normalizeSearchText(value) {
@@ -734,11 +713,13 @@ function closeCart() {
   setPageScrollLock("cart", false);
 }
 
-function addToCart(id) {
+function addToCart(id, quantity = 1) {
   const product = products.find(
     (item) => item.id === id
   );
 
+  const requestedQuantity = Number(quantity);
+  if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) return false;
   if (!product) return false;
   if (product.available !== true || !Number.isInteger(product.availableQuantity)) {
     toast(productAvailabilityMessage(product));
@@ -750,22 +731,23 @@ function addToCart(id) {
   );
   const currentQuantity = existing?.quantity || 0;
 
-  if (currentQuantity >= product.availableQuantity) {
-    toast("وصلت إلى الحد المتاح في السلة");
+  if (currentQuantity + requestedQuantity > product.availableQuantity) {
+    toast("الكمية المطلوبة أكبر من المتاح في المخزن");
     renderProducts();
     return false;
   }
 
+  if (currentQuantity + requestedQuantity > CART_ITEM_LIMIT) {
+    toast(`الحد الأقصى ${CART_ITEM_LIMIT} قطعة من المنتج الواحد`);
+    return false;
+  }
+
   if (existing) {
-    if (existing.quantity >= CART_ITEM_LIMIT) {
-      toast(`الحد الأقصى ${CART_ITEM_LIMIT} قطعة من المنتج الواحد`);
-      return false;
-    }
-    existing.quantity += 1;
+    existing.quantity += requestedQuantity;
   } else {
     state.cart.push({
       product,
-      quantity: 1,
+      quantity: requestedQuantity,
     });
   }
 
@@ -773,7 +755,7 @@ function addToCart(id) {
   renderCart();
   renderProducts();
 
-  toast("تمت إضافة المنتج إلى السلة");
+  toast(requestedQuantity === 1 ? "تمت إضافة المنتج إلى السلة" : `تمت إضافة ${requestedQuantity} قطع إلى السلة`);
   return true;
 }
 
@@ -1119,11 +1101,8 @@ function openProductDetailsModal(productId) {
   const product = products.find((item) => item.id === productId);
   if (!product) return;
 
-  const specs = productSpecEntries(product)
-    .map(({ label, value }) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`)
-    .join("");
-  const canAddProduct = product.available === true &&
-    Number.isInteger(product.availableQuantity) && !productAtCartLimit(product);
+  const remainingQuantity = product.available === true ? remainingProductQuantity(product) : 0;
+  productModalQuantity = remainingQuantity > 0 ? 1 : 0;
 
   $("#modalContent").innerHTML = `
     <article class="product-detail-view">
@@ -1132,21 +1111,19 @@ function openProductDetailsModal(productId) {
         ${productAvailabilityOverlay(product)}
       </div>
       <div class="product-detail-copy">
-        <span class="product-detail-category">${escapeHtml(categoryLabel[product.category] || "منتج")}</span>
         <h2 class="product-detail-title">${escapeHtml(product.name)}</h2>
-        <p class="product-detail-description">${escapeHtml(product.meta || (specs ? "تفاصيل المنتج والمقاسات موضحة أدناه." : "لا توجد تفاصيل إضافية لهذا المنتج."))}</p>
-        <aside class="product-detail-highlight">
-          <span class="product-detail-highlight-icon" aria-hidden="true">✦</span>
-          <div>
-            <strong>فكرة للاستخدام</strong>
-            <p>${escapeHtml(productShoppingNote(product))}</p>
-          </div>
-        </aside>
-        ${specs ? `<dl class="product-detail-specs">${specs}</dl>` : ""}
         <div class="product-detail-purchase">
           <span class="product-detail-price">${money(product.price)}</span>
-          <button class="btn btn-primary product-detail-add" type="button" data-id="${product.id}" ${canAddProduct ? "" : "disabled"}>
-            ${canAddProduct ? "أضف إلى السلة" : escapeHtml(productAvailabilityMessage(product))}
+          <div class="product-detail-quantity">
+            <span>الكمية</span>
+            <div class="product-detail-quantity-controls" dir="ltr">
+              <button type="button" data-detail-quantity="-1" aria-label="تقليل الكمية" ${productModalQuantity <= 1 ? "disabled" : ""}>−</button>
+              <output id="productDetailQuantity" aria-live="polite">${productModalQuantity}</output>
+              <button type="button" data-detail-quantity="1" aria-label="زيادة الكمية" ${productModalQuantity >= remainingQuantity ? "disabled" : ""}>＋</button>
+            </div>
+          </div>
+          <button class="btn btn-primary product-detail-add" type="button" data-id="${product.id}" ${remainingQuantity > 0 ? "" : "disabled"}>
+            ${remainingQuantity > 0 ? "أضف إلى السلة" : escapeHtml(productAvailabilityMessage(product))}
           </button>
         </div>
       </div>
@@ -1160,9 +1137,24 @@ function openProductDetailsModal(productId) {
 }
 
 $("#quickModal")?.addEventListener("click", (event) => {
+  const quantityButton = event.target.closest("[data-detail-quantity]");
+  if (quantityButton) {
+    const productId = Number($(".product-detail-add")?.dataset.id);
+    const product = products.find((item) => item.id === productId);
+    if (!product) return;
+
+    const remainingQuantity = product.available === true ? remainingProductQuantity(product) : 0;
+    const change = Number(quantityButton.dataset.detailQuantity);
+    productModalQuantity = Math.min(remainingQuantity, Math.max(1, productModalQuantity + change));
+    $("#productDetailQuantity").textContent = String(productModalQuantity);
+    $("[data-detail-quantity=\"-1\"]").disabled = productModalQuantity <= 1;
+    $("[data-detail-quantity=\"1\"]").disabled = productModalQuantity >= remainingQuantity;
+    return;
+  }
+
   const button = event.target.closest(".product-detail-add");
   if (!button || button.disabled) return;
-  if (addToCart(Number(button.dataset.id))) closeModal();
+  if (addToCart(Number(button.dataset.id), productModalQuantity)) closeModal();
 });
 
 function closeModal() {
