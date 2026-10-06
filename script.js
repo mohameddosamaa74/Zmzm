@@ -328,6 +328,33 @@ function productSpecEntries(product) {
     }));
 }
 
+function productShoppingNote(product) {
+  const notes = {
+    boards: [
+      "قاعدة أنيقة تكمل شكل الكيك عند التقديم.",
+      "اختيار مرتب لإبراز كعكتك في المناسبات.",
+      "تفصيلة عملية لعرض الكيك بشكل أجمل.",
+    ],
+    boxes: [
+      "علبة تكمل جمال الكيك وتجعله جاهزاً للتقديم.",
+      "تغليف مرتب يضيف لمسة أنيقة لمناسباتك.",
+      "اختيار عملي لتجهيز الكيك وتقديمه بصورة جميلة.",
+    ],
+    cupcakes: [
+      "ترتيب أجمل لقطع الكب كيك في مناسباتك.",
+      "طريقة أنيقة لتقديم الكب كيك للضيوف.",
+      "اختيار عملي يساعدك على تنسيق الكب كيك.",
+    ],
+    packaging: [
+      "لمسة بسيطة تكمل تنسيق وتغليف طلبك.",
+      "تفاصيل التغليف تضيف جمالاً لتجهيزاتك.",
+      "أضف لمسة أنيقة لتغليف الحلويات والهدايا.",
+    ],
+  };
+  const choices = notes[product.category] || notes.boxes;
+  return choices[Math.abs(product.id) % choices.length];
+}
+
 function normalizeSearchText(value) {
   return normalizeDigits(value)
     .normalize("NFKC")
@@ -1108,6 +1135,13 @@ function openProductDetailsModal(productId) {
         <span class="product-detail-category">${escapeHtml(categoryLabel[product.category] || "منتج")}</span>
         <h2 class="product-detail-title">${escapeHtml(product.name)}</h2>
         <p class="product-detail-description">${escapeHtml(product.meta || (specs ? "تفاصيل المنتج والمقاسات موضحة أدناه." : "لا توجد تفاصيل إضافية لهذا المنتج."))}</p>
+        <aside class="product-detail-highlight">
+          <span class="product-detail-highlight-icon" aria-hidden="true">✦</span>
+          <div>
+            <strong>فكرة للاستخدام</strong>
+            <p>${escapeHtml(productShoppingNote(product))}</p>
+          </div>
+        </aside>
         ${specs ? `<dl class="product-detail-specs">${specs}</dl>` : ""}
         <div class="product-detail-purchase">
           <span class="product-detail-price">${money(product.price)}</span>
