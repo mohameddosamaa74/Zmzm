@@ -1091,6 +1091,7 @@ function openBulkQuoteModal() {
   `;
 
   $("#quickModal")?.classList.remove("product-details-open");
+  $("#modalBackdrop")?.classList.remove("product-details-backdrop");
   $("#quickModal")?.setAttribute("aria-label", "طلب عرض سعر بالجملة");
   $("#quickModal")?.classList.add("open");
   setPageScrollLock("modal", true);
@@ -1133,7 +1134,7 @@ function openProductDetailsModal(productId) {
   $("#quickModal")?.classList.add("product-details-open", "open");
   $("#quickModal")?.setAttribute("aria-label", `عرض المنتج ${product.name}`);
   setPageScrollLock("modal", true);
-  $("#modalBackdrop")?.classList.add("visible");
+  $("#modalBackdrop")?.classList.add("visible", "product-details-backdrop");
 }
 
 $("#quickModal")?.addEventListener("click", (event) => {
@@ -1163,7 +1164,8 @@ function closeModal() {
   $("#quickModal")?.setAttribute("aria-label", "طلب عرض سعر بالجملة");
 
   $("#modalBackdrop")?.classList.remove(
-    "visible"
+    "visible",
+    "product-details-backdrop"
   );
   setPageScrollLock("modal", false);
 }
