@@ -15,6 +15,7 @@ html[dir="rtl"] body select:not([multiple]) {
   background-position: left 14px center;
   padding-left: 38px;
   padding-right: 14px;
+  text-align: right;
 }
 
 html[dir="ltr"] body select:not([multiple]) {
