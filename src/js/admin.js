@@ -444,8 +444,13 @@ async function uploadProductImage(imageDataUrl) {
   };
   const match = imageDataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([\s\S]+)$/i);
   if (!match) throw new Error("بيانات صورة المنتج غير صالحة.");
-  const [, contentType] = match;
-  const blob = await fetch(imageDataUrl).then((response) => response.blob());
+  const [, contentType, base64Data] = match;
+  const binaryData = atob(base64Data);
+  const imageBytes = new Uint8Array(binaryData.length);
+  for (let index = 0; index < binaryData.length; index += 1) {
+    imageBytes[index] = binaryData.charCodeAt(index);
+  }
+  const blob = new Blob([imageBytes], { type: contentType.toLowerCase() });
   const extension = extensions[contentType.toLowerCase()];
   if (!extension) throw new Error("صيغة الصورة غير مدعومة.");
   if (blob.size > MAX_PRODUCT_IMAGE_SIZE) throw new Error("يجب ألا يتجاوز حجم الصورة 10 ميجابايت.");
