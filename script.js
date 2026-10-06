@@ -470,7 +470,7 @@ function renderProducts() {
       <div class="product-info">
         <h3>${escapeHtml(product.name)}</h3>
 
-        <div class="product-meta product-description">
+        <div class="product-meta">
           ${escapeHtml(product.meta)}
         </div>
 
@@ -494,6 +494,10 @@ function renderProducts() {
             ＋
           </button>
         </div>
+
+        <button class="product-view-button" type="button" data-id="${product.id}">
+          عرض المنتج
+        </button>
       </div>
     </article>`;
         })
@@ -757,6 +761,12 @@ $("#productGrid")?.addEventListener(
     const button = event.target.closest(
       ".add-to-cart"
     );
+
+    const viewButton = event.target.closest(".product-view-button");
+    if (viewButton) {
+      openProductDetailsModal(Number(viewButton.dataset.id));
+      return;
+    }
 
     if (button) {
       const id = Number(button.dataset.id);
@@ -1071,13 +1081,60 @@ function openBulkQuoteModal() {
     </div>
   `;
 
+  $("#quickModal")?.classList.remove("product-details-open");
+  $("#quickModal")?.setAttribute("aria-label", "طلب عرض سعر بالجملة");
   $("#quickModal")?.classList.add("open");
   setPageScrollLock("modal", true);
   $("#modalBackdrop")?.classList.add("visible");
 }
 
+function openProductDetailsModal(productId) {
+  const product = products.find((item) => item.id === productId);
+  if (!product) return;
+
+  const specs = productSpecEntries(product)
+    .map(({ label, value }) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`)
+    .join("");
+  const canAddProduct = product.available === true &&
+    Number.isInteger(product.availableQuantity) && !productAtCartLimit(product);
+
+  $("#modalContent").innerHTML = `
+    <article class="product-detail-view">
+      <div class="product-detail-image product-image ${escapeHtml(product.category)} ${product.available === false ? "is-out-of-stock" : ""}">
+        ${productArt(product)}
+        ${productAvailabilityOverlay(product)}
+      </div>
+      <div class="product-detail-copy">
+        <span class="product-detail-category">${escapeHtml(categoryLabel[product.category] || "منتج")}</span>
+        <h2 class="product-detail-title">${escapeHtml(product.name)}</h2>
+        <p class="product-detail-description">${escapeHtml(product.meta || (specs ? "تفاصيل المنتج والمقاسات موضحة أدناه." : "لا توجد تفاصيل إضافية لهذا المنتج."))}</p>
+        ${specs ? `<dl class="product-detail-specs">${specs}</dl>` : ""}
+        <div class="product-detail-purchase">
+          <span class="product-detail-price">${money(product.price)}</span>
+          <button class="btn btn-primary product-detail-add" type="button" data-id="${product.id}" ${canAddProduct ? "" : "disabled"}>
+            ${canAddProduct ? "أضف إلى السلة" : escapeHtml(productAvailabilityMessage(product))}
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+
+  $("#quickModal")?.classList.add("product-details-open", "open");
+  $("#quickModal")?.setAttribute("aria-label", `عرض المنتج ${product.name}`);
+  setPageScrollLock("modal", true);
+  $("#modalBackdrop")?.classList.add("visible");
+}
+
+$("#quickModal")?.addEventListener("click", (event) => {
+  const button = event.target.closest(".product-detail-add");
+  if (!button || button.disabled) return;
+  if (addToCart(Number(button.dataset.id))) closeModal();
+});
+
 function closeModal() {
   $("#quickModal")?.classList.remove("open");
+  $("#quickModal")?.classList.remove("product-details-open");
+  $("#quickModal")?.setAttribute("aria-label", "طلب عرض سعر بالجملة");
 
   $("#modalBackdrop")?.classList.remove(
     "visible"
