@@ -15,9 +15,11 @@
   background: var(--blue-soft);
 }
 
-#quickModal.product-details-open {
-  width: min(760px, calc(100% - 32px));
-  max-height: min(92vh, 900px);
+#quickModal.modal.product-details-open {
+  width: min(620px, calc(100vw - 28px));
+  max-width: min(620px, calc(100vw - 28px));
+  max-height: min(90vh, 780px);
+  max-height: min(90dvh, 780px);
   padding: 0;
   overflow: auto;
 }
@@ -26,49 +28,53 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 28px 32px 30px;
+  gap: 12px;
+  padding: 22px 28px 26px;
   text-align: center;
 }
 
 #quickModal.product-details-open .product-detail-image {
   position: relative;
   width: 100%;
-  height: min(54vh, 470px);
-  min-height: 280px;
+  height: clamp(170px, 38vh, 340px);
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #e5ebf2;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
 }
 
-#quickModal.product-details-open .product-detail-image .product-art:not(.ribbon) {
-  transform: scale(1.5);
+#quickModal.product-details-open .product-detail-image img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 10px !important;
+  object-fit: contain !important;
 }
 
-#quickModal.product-details-open .product-detail-image .product-art.ribbon {
-  transform: scale(1.4) rotate(-8deg);
+#quickModal.product-details-open .product-detail-image .product-art {
+  transform: none;
 }
 
 .product-detail-copy {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(540px, 100%);
+  width: 100%;
 }
 
 .product-detail-title {
-  margin: 0 0 12px;
+  max-width: 100%;
+  margin: 0 0 4px;
   color: var(--navy);
-  font-size: 25px;
-  line-height: 1.5;
+  font-size: clamp(19px, 2.5vw, 24px);
+  line-height: 1.45;
 }
 
 .product-detail-purchase {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
   width: 100%;
 }
 
@@ -81,8 +87,9 @@
 
 .product-detail-quantity {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
@@ -92,14 +99,16 @@
 .product-detail-quantity-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 14px;
+  min-width: 150px;
   color: var(--navy);
 }
 
 .product-detail-quantity-controls button {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid #d7e4f3;
   border-radius: 9px;
@@ -128,7 +137,8 @@
 }
 
 .product-detail-add {
-  min-width: 170px;
+  width: min(100%, 360px);
+  min-height: 48px;
 }
 
 .product-detail-add:disabled {
@@ -137,29 +147,29 @@
 }
 
 @media (max-width: 640px) {
-  #quickModal.product-details-open {
+  #quickModal.modal.product-details-open {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
     max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
   }
 
   .product-detail-view {
-    gap: 14px;
-    padding: 24px 16px 20px;
+    gap: 10px;
+    padding: 18px 14px 18px;
   }
 
   #quickModal.product-details-open .product-detail-image {
-    height: min(46vh, 340px);
-    min-height: 190px;
+    height: clamp(145px, 34vh, 260px);
   }
 
   .product-detail-title {
-    margin-bottom: 10px;
-    font-size: 20px;
+    margin-bottom: 2px;
+    font-size: clamp(18px, 5vw, 21px);
   }
 
   .product-detail-purchase {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
   }
 
   .product-detail-price {
@@ -167,12 +177,13 @@
   }
 
   .product-detail-quantity {
-    gap: 7px;
+    gap: 5px;
     font-size: 13px;
   }
 
   .product-detail-quantity-controls {
-    gap: 5px;
+    gap: 12px;
+    min-width: 144px;
   }
 
   .product-detail-quantity-controls button {
@@ -182,6 +193,21 @@
 
   .product-detail-add {
     width: 100%;
-    min-width: 0;
+    min-height: 46px;
+  }
+}
+
+@media (max-height: 520px) and (min-width: 641px) {
+  #quickModal.modal.product-details-open {
+    max-height: calc(100dvh - 16px);
+  }
+
+  #quickModal.product-details-open .product-detail-image {
+    height: 34vh;
+  }
+
+  .product-detail-view {
+    gap: 8px;
+    padding-block: 16px;
   }
 }
