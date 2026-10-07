@@ -201,25 +201,20 @@
     <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="طلب عرض سعر بالجملة"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق النافذة">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
     <button class="store-assistant-toggle" id="storeAssistantToggle" type="button" aria-label="فتح مساعد زمزم" aria-expanded="false" aria-controls="storeAssistantPanel">
       <span class="store-assistant-logo" aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none"><path class="assistant-logo-bubble" d="M5.5 8.25A4.75 4.75 0 0 1 10.25 3.5h11.5a4.75 4.75 0 0 1 4.75 4.75v8a4.75 4.75 0 0 1-4.75 4.75h-6.5l-7.25 5v-5.45a4.74 4.74 0 0 1-2.5-4.3Z"/><path class="assistant-logo-z" d="M12 9h9l-9 8h9"/><path class="assistant-logo-spark" d="M25 3v5m-2.5-2.5h5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H10l-5.5 4v-4.7A2.74 2.74 0 0 1 4 13.25v-7.5Z"/><path d="M8 8h8M8 11.5h5"/></svg>
       </span>
       <span>مساعد زمزم</span>
     </button>
     <section class="store-assistant-panel" id="storeAssistantPanel" role="dialog" aria-labelledby="storeAssistantTitle" hidden>
       <header class="store-assistant-header">
-        <div class="store-assistant-header-brand">
-          <span class="store-assistant-header-logo" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none"><path class="assistant-logo-bubble" d="M5.5 8.25A4.75 4.75 0 0 1 10.25 3.5h11.5a4.75 4.75 0 0 1 4.75 4.75v8a4.75 4.75 0 0 1-4.75 4.75h-6.5l-7.25 5v-5.45a4.74 4.74 0 0 1-2.5-4.3Z"/><path class="assistant-logo-z" d="M12 9h9l-9 8h9"/><path class="assistant-logo-spark" d="M25 3v5m-2.5-2.5h5"/></svg>
-            <span class="store-assistant-status-dot"></span>
-          </span>
-          <div><h2 id="storeAssistantTitle">مساعد زمزم</h2><p>المنتجات والأسعار والتوصيل والاستفسارات</p></div>
-        </div>
+        <div><span class="store-assistant-status-dot" aria-hidden="true"></span><div><h2 id="storeAssistantTitle">مساعد زمزم</h2><p>المنتجات والأسعار والتوصيل والاستفسارات</p></div></div>
         <button class="store-assistant-close" id="storeAssistantClose" type="button" aria-label="إغلاق المساعد">×</button>
       </header>
       <div class="store-assistant-messages" id="storeAssistantMessages" role="log" aria-live="polite" aria-relevant="additions text">
-        <div class="store-assistant-message assistant"><p>أهلاً بك! اسألني عن المنتجات والمقاسات والأسعار والتوفر أو التوصيل. وإذا لم تجد منتجًا، أرسل اسمه وسأسجله في الاستفسارات.</p></div>
+        <div class="store-assistant-message assistant"><p>أهلاً بك! اسألني عن المنتجات والمقاسات والأسعار والتوفر أو التوصيل. إذا كنت تبحث عن منتج، اضغط «تبحث عن منتج؟» وسأطلب تأكيدك قبل تسجيله.</p></div>
       </div>
       <div class="store-assistant-suggestions" id="storeAssistantSuggestions" aria-label="أسئلة مقترحة">
+        <button type="button" data-assistant-action="search-product">تبحث عن منتج؟</button>
         <button type="button">ما المقاسات المتاحة؟</button>
         <button type="button">كم تكلفة التوصيل؟</button>
         <button type="button">كيف أطلب؟</button>

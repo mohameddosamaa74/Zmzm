@@ -152,6 +152,29 @@ function appendMessage(role, text, extraClass = "") {
   return message;
 }
 
+function appendChoiceMessage(text, choices) {
+  const message = appendMessage("assistant", text);
+  const actions = document.createElement("div");
+  actions.className = "store-assistant-confirm-actions";
+  for (const choice of choices) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.assistantChoice = choice.value;
+    button.textContent = choice.label;
+    actions.append(button);
+  }
+  message.append(actions);
+  messagesView.scrollTop = messagesView.scrollHeight;
+  return message;
+}
+
+function startProductSearch() {
+  setPanelOpen(true);
+  inquiryFlow = { step: "awaiting_product_name" };
+  appendMessage("assistant", "اكتب اسم المنتج الذي تبحث عنه. سأتحقق من المنتجات، ولن أرسل استفسارًا إلا بعد تأكيدك.");
+  input.focus();
+}
+
 function setPanelOpen(isOpen) {
   panel.hidden = !isOpen;
   toggle.setAttribute("aria-expanded", String(isOpen));
@@ -255,6 +278,52 @@ function getReliableProductMatches(question, catalog) {
   });
 }
 
+function editDistance(left, right) {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const cost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + cost,
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+function tokenSimilarity(left, right) {
+  if (left === right) return 1;
+  if (Math.min(left.length, right.length) < 3) return 0;
+  return 1 - editDistance(left, right) / Math.max(left.length, right.length);
+}
+
+function getClosestProduct(productName, catalog) {
+  const requestedTokens = [...new Set(tokens(productName).filter((token) =>
+    !STOP_WORDS.has(token) && token.length > 1 && !/^\d+$/.test(token)
+  ))];
+  if (!requestedTokens.length) return null;
+
+  const rankedProducts = catalog.map((product) => {
+    const nameTokens = [...new Set(tokens(product.name).filter((token) =>
+      !STOP_WORDS.has(token) && token.length > 1 && !/^\d+$/.test(token)
+    ))];
+    const similarities = requestedTokens.map((requestedToken) =>
+      Math.max(0, ...nameTokens.map((nameToken) => tokenSimilarity(requestedToken, nameToken)))
+    );
+    const exactTokenCount = similarities.filter((similarity) => similarity === 1).length;
+    const score = similarities.reduce((total, similarity) => total + similarity, 0) / similarities.length;
+    return { product, score, exactTokenCount };
+  }).sort((left, right) => right.score - left.score || right.exactTokenCount - left.exactTokenCount);
+
+  const closest = rankedProducts[0];
+  if (!closest || (closest.score < 0.58 && !(closest.exactTokenCount >= 1 && closest.score >= 0.45))) return null;
+  return closest;
+}
+
 function hasProductCue(question) {
   return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|board|box|cake|product|item|cupcake|packaging|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
 }
@@ -262,6 +331,7 @@ function hasProductCue(question) {
 function getInquiryProductName(question) {
   let name = String(question || "").trim();
   name = name.replace(/^(?:(?:do you have|do you sell|is there|can i get|i need|i want|looking for|find me)\s+)/i, "");
+  name = name.replace(/^(?:a|an|the)\s+/i, "");
   name = name.replace(/^(?:(?:هل\s*)?(?:عندكم|يتوفر|متوفر|موجود|يوجد|فيه|ممكن\s+توفروا|اريد|عايز|عاوزه|عاوز|محتاج|محتاجه|ابغى)\s*)/i, "");
   name = name.replace(/[؟?!.,،]+$/g, "").trim();
   return name || String(question || "").trim();
@@ -316,6 +386,141 @@ async function saveInquiryAndReply(productName, english = false) {
     ok: result.ok,
     text: result.ok ? inquirySaveReply(productName, english) : inquiryFailureReply(result.status, english),
   };
+}
+
+function processProductSearchName(rawName, catalog) {
+  const match = answerQuestion(rawName, catalog);
+  if (match.type === "answer") {
+    inquiryFlow = null;
+    appendMessage("assistant", match.text);
+    return;
+  }
+
+  const productName = match.type === "missing_product" ? match.productName : getInquiryProductName(rawName);
+  const english = isEnglish(rawName);
+  if (!productName || productName.length > 160) {
+    inquiryFlow = { step: "awaiting_product_name" };
+    appendMessage("assistant", english
+      ? "Please enter a shorter product name (up to 160 characters)."
+      : "اكتب اسم المنتج باختصار (حتى ١٦٠ حرفًا).");
+    return;
+  }
+
+  const closest = getClosestProduct(productName, catalog);
+  if (closest) {
+    inquiryFlow = {
+      step: "confirm_nearest",
+      requestedName: productName,
+      nearestProductId: closest.product.id,
+      english,
+    };
+    appendChoiceMessage(
+      english
+        ? `I couldn’t find an exact match. Did you mean “${closest.product.name}”?`
+        : `لم أجد تطابقًا مؤكدًا. هل تقصد «${closest.product.name}»؟`,
+      english
+        ? [{ value: "yes", label: "Yes, that one" }, { value: "no", label: "No" }]
+        : [{ value: "yes", label: "نعم، هذا هو" }, { value: "no", label: "لا" }],
+    );
+    return;
+  }
+
+  inquiryFlow = { step: "confirm_save", requestedName: productName, english };
+  appendChoiceMessage(
+    english
+      ? `I couldn’t find a similar listed product. Would you like me to send “${productName}” to inquiries?`
+      : `لم أجد منتجًا مشابهًا في القائمة. هل تريد تسجيل «${productName}» في الاستفسارات؟`,
+    english
+      ? [{ value: "yes", label: "Yes, send it" }, { value: "retry", label: "Enter another name" }, { value: "cancel", label: "Cancel" }]
+      : [{ value: "yes", label: "نعم، سجّله" }, { value: "retry", label: "أكتب اسمًا آخر" }, { value: "cancel", label: "إلغاء" }],
+  );
+}
+
+function isCancelChoice(text) {
+  return /^(إلغاء|الغاء|cancel)$/i.test(normalizeText(text));
+}
+
+async function handleInquiryChoice(choice) {
+  if (inquiryFlow?.step === "confirm_nearest") {
+    const flow = inquiryFlow;
+    if (choice === "yes") {
+      const product = cachedCatalog?.find((entry) => entry.id === flow.nearestProductId);
+      inquiryFlow = null;
+      if (product) {
+        selectedProductId = product.id;
+        appendMessage("assistant", productSummary(product, flow.english));
+      } else {
+        appendMessage("assistant", flow.english
+          ? "I couldn’t load that product. Please search for it again."
+          : "تعذر عرض المنتج الآن. ابحث عنه مرة أخرى من خيار «تبحث عن منتج؟».");
+      }
+      return true;
+    }
+    if (choice === "no") {
+      inquiryFlow = { step: "confirm_save", requestedName: flow.requestedName, english: flow.english };
+      appendChoiceMessage(
+        flow.english
+          ? `Would you like to send your requested product “${flow.requestedName}” to inquiries instead?`
+          : `حسنًا. هل تريد تسجيل المنتج الذي طلبته «${flow.requestedName}» في الاستفسارات؟`,
+        flow.english
+          ? [{ value: "yes", label: "Yes, send it" }, { value: "retry", label: "Enter another name" }, { value: "cancel", label: "Cancel" }]
+          : [{ value: "yes", label: "نعم، سجّله" }, { value: "retry", label: "أكتب اسمًا آخر" }, { value: "cancel", label: "إلغاء" }],
+      );
+      return true;
+    }
+  }
+
+  if (inquiryFlow?.step === "confirm_save") {
+    const flow = inquiryFlow;
+    if (choice === "yes") {
+      setSending(true);
+      const typingMessage = appendMessage("assistant", flow.english ? "Sending your confirmed request…" : "جارٍ تسجيل طلبك بعد تأكيدك…", "typing");
+      try {
+        const result = await saveInquiryAndReply(flow.requestedName, flow.english);
+        typingMessage.remove();
+        if (result.ok) {
+          inquiryFlow = null;
+          appendMessage("assistant", result.text);
+        } else {
+          appendMessage("assistant", result.text);
+          appendChoiceMessage(
+            flow.english ? "Would you like to retry or enter another name?" : "يمكنك إعادة المحاولة أو كتابة اسم آخر.",
+            flow.english
+              ? [{ value: "yes", label: "Retry" }, { value: "retry", label: "Enter another name" }, { value: "cancel", label: "Cancel" }]
+              : [{ value: "yes", label: "إعادة المحاولة" }, { value: "retry", label: "أكتب اسمًا آخر" }, { value: "cancel", label: "إلغاء" }],
+          );
+        }
+      } catch {
+        typingMessage.remove();
+        appendMessage("assistant", inquiryFailureReply(0, flow.english));
+      } finally {
+        setSending(false);
+        input.focus();
+      }
+      return true;
+    }
+    if (choice === "retry") {
+      inquiryFlow = { step: "awaiting_product_name" };
+      appendMessage("assistant", flow.english
+        ? "Type another product name and I’ll check it."
+        : "اكتب اسم منتج آخر وسأتحقق منه.");
+      input.focus();
+      return true;
+    }
+    if (choice === "cancel") {
+      inquiryFlow = null;
+      appendMessage("assistant", flow.english ? "Request cancelled." : "تم إلغاء تسجيل الطلب.");
+      input.focus();
+      return true;
+    }
+    if (choice === "no") {
+      inquiryFlow = null;
+      appendMessage("assistant", flow.english ? "Request cancelled." : "حسنًا، لن أسجل هذا الطلب.");
+      input.focus();
+      return true;
+    }
+  }
+  return false;
 }
 
 function formatMoney(value, english = false) {
@@ -452,29 +657,47 @@ function answerQuestion(question, catalog) {
   return { type: "unclear" };
 }
 
-async function sendMessage(text) {
+function disablePreviousChoices() {
+  messagesView.querySelectorAll(".store-assistant-confirm-actions button").forEach((button) => {
+    button.disabled = true;
+  });
+}
+
+async function sendMessage(text, visibleText = text) {
   const cleanText = text.trim();
   if (!cleanText || isSending) return;
 
   setPanelOpen(true);
-  suggestions.hidden = true;
-  appendMessage("user", cleanText);
+  suggestions.hidden = false;
+  appendMessage("user", visibleText.trim() || cleanText);
+  disablePreviousChoices();
   input.value = "";
   input.style.height = "auto";
 
+  if (inquiryFlow?.step === "confirm_nearest" || inquiryFlow?.step === "confirm_save") {
+    const choice = ["yes", "no", "retry", "cancel"].includes(cleanText.toLowerCase())
+      ? cleanText.toLowerCase()
+      : isAffirmative(cleanText) ? "yes" : isNegative(cleanText) ? "no" : isCancelChoice(cleanText) ? "cancel" : null;
+    if (choice && await handleInquiryChoice(choice)) {
+      input.focus();
+      return;
+    }
+    inquiryFlow = { step: "awaiting_product_name" };
+  }
+
   if (inquiryFlow?.step === "awaiting_product_name") {
-    if (isNegative(cleanText)) {
+    if (isCancelChoice(cleanText) || isNegative(cleanText)) {
       inquiryFlow = null;
       appendMessage("assistant", isEnglish(cleanText)
-        ? "No problem. Please rephrase your question and I’ll try to help."
-        : "حسنًا. وضّح سؤالك بطريقة أخرى وسأحاول مساعدتك.");
+        ? "Product search cancelled. You can choose “Searching for a product?” whenever you want to try again."
+        : "تم إلغاء البحث. يمكنك اختيار «تبحث عن منتج؟» للبدء من جديد.");
       input.focus();
       return;
     }
     if (isAffirmative(cleanText)) {
       appendMessage("assistant", isEnglish(cleanText)
-        ? "Please type the product name you’re looking for. I’ll check the catalog and save it to inquiries if it isn’t listed."
-        : "اكتب اسم المنتج الذي تبحث عنه. سأتحقق من قائمة المنتجات، وإذا لم يكن موجودًا فسأسجله في الاستفسارات.");
+        ? "Please type the product name you’re looking for."
+        : "اكتب اسم المنتج الذي تبحث عنه.");
       input.focus();
       return;
     }
@@ -495,40 +718,15 @@ async function sendMessage(text) {
     typingMessage.remove();
 
     if (inquiryFlow?.step === "awaiting_product_name") {
-      const result = answerQuestion(cleanText, catalog);
-      if (result.type === "answer") {
-        inquiryFlow = null;
-        appendMessage("assistant", result.text);
-      } else {
-        const productName = getInquiryProductName(cleanText);
-        if (productName.length > 160) {
-          appendMessage("assistant", isEnglish(cleanText)
-            ? "Please send a shorter product name (up to 160 characters) so I can save it."
-            : "اسم المنتج طويل. اكتب اسمًا أقصر (حتى ١٦٠ حرفًا) لأتمكن من تسجيله.");
-        } else {
-          const result = await saveInquiryAndReply(productName, isEnglish(cleanText));
-          inquiryFlow = result.ok ? null : { step: "awaiting_product_name" };
-          appendMessage("assistant", result.text);
-        }
-      }
+      processProductSearchName(cleanText, catalog);
     } else {
       const result = answerQuestion(cleanText, catalog);
       if (result.type === "missing_product") {
-        if (!result.productName || result.productName.length > 160) {
-          inquiryFlow = { step: "awaiting_product_name" };
-          appendMessage("assistant", isEnglish(cleanText)
-            ? "That product isn’t in our current catalog. Please type its name briefly and I’ll send it to inquiries."
-            : "هذا المنتج غير موجود ضمن منتجاتنا الحالية. اكتب اسمه باختصار وسأرسله إلى قسم الاستفسارات.");
-        } else {
-          const inquiryResult = await saveInquiryAndReply(result.productName, isEnglish(cleanText));
-          inquiryFlow = inquiryResult.ok ? null : { step: "awaiting_product_name" };
-          appendMessage("assistant", inquiryResult.text);
-        }
+        processProductSearchName(result.productName, catalog);
       } else if (result.type === "unclear") {
-        inquiryFlow = { step: "awaiting_product_name" };
         appendMessage("assistant", isEnglish(cleanText)
-          ? "I didn’t understand. Are you asking about a specific product? Type its name and I’ll check the catalog; if it isn’t listed, I’ll save it in inquiries."
-          : "لم أفهم سؤالك. هل تسأل عن منتج محدد؟ اكتب اسمه وسأتحقق من القائمة، وإذا لم يكن موجودًا فسأسجله في الاستفسارات.");
+          ? "I didn’t understand. If you’re looking for a product, click “تبحث عن منتج؟” below and enter its name. I’ll check for a close match and ask you to confirm before recording an inquiry."
+          : "لم أفهم سؤالك. إذا كنت تبحث عن منتج، اضغط «تبحث عن منتج؟» أسفل المحادثة واكتب اسمه. سأبحث عن أقرب منتج وأطلب تأكيدك قبل تسجيل أي استفسار.");
       } else {
         appendMessage("assistant", result.text);
       }
@@ -542,6 +740,12 @@ async function sendMessage(text) {
     setSending(false);
     input.focus();
   }
+}
+
+function beginProductSearch() {
+  if (isSending) return;
+  disablePreviousChoices();
+  startProductSearch();
 }
 
 toggle.addEventListener("click", () => setPanelOpen(panel.hidden));
@@ -566,7 +770,20 @@ input.addEventListener("keydown", (event) => {
 
 suggestions.addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (button) void sendMessage(button.textContent || "");
+  if (!button) return;
+  if (button.dataset.assistantAction === "search-product") {
+    beginProductSearch();
+    return;
+  }
+  inquiryFlow = null;
+  void sendMessage(button.textContent || "");
+});
+
+messagesView.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-assistant-choice]");
+  if (button && !button.disabled) {
+    void sendMessage(button.dataset.assistantChoice || "", button.textContent || "");
+  }
 });
 
 document.addEventListener("keydown", (event) => {

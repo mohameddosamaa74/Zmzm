@@ -48,52 +48,21 @@
   z-index: 1;
 }
 
-.store-assistant-logo,
-.store-assistant-header-logo {
-  position: relative;
+.store-assistant-logo {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, .38);
-  border-radius: 50%;
-  background: linear-gradient(145deg, #48b4ff, #1264d1 72%);
-  box-shadow: inset 0 1px 5px rgba(255, 255, 255, .25), 0 3px 9px rgba(8, 44, 92, .25);
+  width: 25px;
+  height: 25px;
 }
 
-.store-assistant-logo {
-  width: 40px;
-  height: 40px;
-  animation: assistant-float 2.7s ease-in-out infinite;
-}
-
-.store-assistant-logo svg,
-.store-assistant-header-logo svg {
-  width: 31px;
-  height: 31px;
-  overflow: visible;
-}
-
-.assistant-logo-bubble {
-  fill: rgba(255, 255, 255, .12);
-  stroke: #fff;
+.store-assistant-logo svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.65;
-}
-
-.assistant-logo-z {
-  stroke: #fff;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.assistant-logo-spark {
-  stroke: #ffdf83;
-  stroke-linecap: round;
   stroke-width: 1.8;
-  transform-origin: 25px 5.5px;
-  animation: assistant-sparkle 2.7s ease-in-out infinite;
 }
 
 .store-assistant-panel {
@@ -128,32 +97,20 @@
   background: #fbfdff;
 }
 
-.store-assistant-header-brand {
+.store-assistant-header > div {
   display: flex;
   align-items: center;
   gap: 11px;
 }
 
-.store-assistant-header-logo {
-  width: 42px;
-  height: 42px;
-  overflow: visible;
-}
-
-.store-assistant-header-logo .store-assistant-status-dot {
-  position: absolute;
-  right: -2px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
-  border: 2px solid #fff;
+.store-assistant-status-dot {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 3px solid #d9f4e6;
   border-radius: 50%;
   background: #24a36d;
-  box-shadow: 0 1px 4px rgba(16, 44, 79, .16);
-}
-
-.store-assistant-status-dot {
-  box-sizing: border-box;
+  box-sizing: content-box;
 }
 
 .store-assistant-header h2 {
@@ -225,6 +182,36 @@
 
 .store-assistant-message.typing {
   color: var(--muted);
+}
+
+.store-assistant-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.store-assistant-confirm-actions button {
+  min-height: 31px;
+  padding: 5px 10px;
+  border: 1px solid #d4e3f5;
+  border-radius: 999px;
+  background: #fff;
+  color: #235a98;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.store-assistant-confirm-actions button:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.store-assistant-confirm-actions button:disabled {
+  cursor: default;
+  opacity: .55;
 }
 
 .store-assistant-suggestions {
@@ -327,6 +314,7 @@
 .store-assistant-toggle:focus-visible,
 .store-assistant-close:focus-visible,
 .store-assistant-form button:focus-visible,
+.store-assistant-confirm-actions button:focus-visible,
 .store-assistant-suggestions button:focus-visible {
   outline: 3px solid rgba(23, 105, 212, .35);
   outline-offset: 2px;
@@ -342,8 +330,8 @@
   }
 
   .store-assistant-logo {
-    width: 38px;
-    height: 38px;
+    width: 25px;
+    height: 25px;
   }
 
   .store-assistant-panel {
@@ -358,9 +346,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .store-assistant-toggle,
-  .store-assistant-toggle::after,
-  .store-assistant-logo,
-  .assistant-logo-spark {
+  .store-assistant-toggle::after {
     transition: none;
     animation: none;
   }
@@ -370,14 +356,4 @@
   0%, 72%, 100% { transform: scale(1); opacity: 0; }
   8% { opacity: .85; }
   42% { transform: scale(1.09); opacity: 0; }
-}
-
-@keyframes assistant-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
-
-@keyframes assistant-sparkle {
-  0%, 66%, 100% { opacity: .65; transform: scale(.8) rotate(0); }
-  78% { opacity: 1; transform: scale(1.15) rotate(35deg); }
 }
