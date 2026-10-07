@@ -159,6 +159,36 @@ try {
     throw new Error(`FAIL: simultaneous returns exceeded the delivered quantity or recorded inconsistently (saved=${savedReturns}; second-error=${returnSecond.stderr.trim()}; first-error=${returnFirstResult.error})`);
   }
   process.stdout.write("PASS: simultaneous return attempts for the final unit recorded exactly one refund and restock.\n");
+
+  const concurrentUserCount = 10;
+  const concurrentOrderKeys = Array.from({ length: concurrentUserCount }, () => randomUUID());
+  await psql(database, `
+    select set_config('request.jwt.claims', '{"sub":"10000000-0000-4000-8000-000000000001","app_metadata":{"role":"admin"}}', false);
+    select public.record_inventory_movement(3, 'received', ${concurrentUserCount}, null, '10-user local concurrency test');
+  `);
+  const concurrentOrderCall = (key, index) => `
+    select public.create_order_secure(
+      '${String(index + 1).padStart(2, "0").repeat(32)}', '${key}',
+      'Concurrent', 'Buyer ${index + 1}', '01012345678',
+      'القاهرة', 'القاهرة', 'Concurrency test address', '1', '1', '1', null,
+      '[{"product_id":3,"quantity":1}]'::jsonb
+    );
+  `;
+  const concurrentOrderResults = await Promise.all(concurrentOrderKeys.map((key, index) =>
+    run("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", concurrentOrderCall(key, index)], { allowFailure: true })
+  ));
+  const acceptedConcurrentOrders = concurrentOrderResults.filter((result) => result.code === 0).length;
+  const savedConcurrentOrders = await psql(database, `
+    select count(*) from public.orders where idempotency_key in (${concurrentOrderKeys.map((key) => `'${key}'`).join(",")});
+  `);
+  const savedConcurrentOrderCount = Number(savedConcurrentOrders.stdout.match(/\d+/)?.[0] || 0);
+  const concurrentStock = await psql(database, "select on_hand, reserved from public.inventory_stock where product_id = 3");
+  const [concurrentOnHand, concurrentReserved] = concurrentStock.stdout.match(/\d+/g)?.map(Number) || [];
+  if (acceptedConcurrentOrders !== concurrentUserCount || savedConcurrentOrderCount !== concurrentUserCount
+    || concurrentOnHand !== concurrentUserCount || concurrentReserved !== concurrentUserCount) {
+    throw new Error(`FAIL: 10 concurrent local checkouts should each reserve one unit (accepted=${acceptedConcurrentOrders}; saved=${savedConcurrentOrderCount}; on-hand=${concurrentOnHand}; reserved=${concurrentReserved})`);
+  }
+  process.stdout.write("PASS: 10 simultaneous local checkout requests each created one order and reserved one unit.\n");
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
