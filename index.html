@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="src/css/section-headings.css" />
     <link rel="stylesheet" href="src/css/product-inquiry.css" />
     <link rel="stylesheet" href="src/css/select-controls.css" />
+    <link rel="stylesheet" href="src/css/store-assistant.css" />
     <script type="module" src="src/js/home-refresh.js"></script>
   </head>
   <body>
@@ -198,7 +199,34 @@
     </footer>
     <aside class="cart-drawer" id="cartDrawer" aria-label="سلة التسوق"><div class="drawer-head"><div><span class="kicker">مراجعة الطلب</span><h2>سلة التسوق <small id="drawerCount">0 منتجات</small></h2></div><button id="closeCart" aria-label="إغلاق السلة">×</button></div><div id="cartItems" class="cart-items"></div><div class="drawer-bottom"><div class="summary-row"><span>المجموع الفرعي</span><b id="subtotal">0 ج.م</b></div><div class="summary-row"><span>التوصيل</span><b id="shipping">—</b></div><div class="summary-row total"><span>الإجمالي</span><b id="total">0 ج.م</b></div><small id="cartDeliveryNote" class="delivery-note"></small><a class="btn btn-primary wide" id="checkoutBtn" href="checkout.html">إتمام الطلب <span>←</span></a></div></aside><div class="drawer-overlay" id="drawerOverlay"></div>
     <div class="modal" id="quickModal" role="dialog" aria-modal="true" aria-label="طلب عرض سعر بالجملة"><button class="modal-close" id="modalClose" type="button" aria-label="إغلاق النافذة">×</button><div id="modalContent"></div></div><div class="modal-backdrop" id="modalBackdrop"></div><div class="toast" id="toast" role="status"></div>
+    <button class="store-assistant-toggle" id="storeAssistantToggle" type="button" aria-expanded="false" aria-controls="storeAssistantPanel">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H10l-5.5 4v-4.7A2.74 2.74 0 0 1 4 13.25v-7.5Z"/><path d="M8 8h8M8 11.5h5"/></svg>
+      <span>اسأل زمزم</span>
+    </button>
+    <section class="store-assistant-panel" id="storeAssistantPanel" role="dialog" aria-labelledby="storeAssistantTitle" hidden>
+      <header class="store-assistant-header">
+        <div><span class="store-assistant-status-dot" aria-hidden="true"></span><div><h2 id="storeAssistantTitle">مساعد زمزم</h2><p>المنتجات والأسعار والتوصيل</p></div></div>
+        <button class="store-assistant-close" id="storeAssistantClose" type="button" aria-label="إغلاق المساعد">×</button>
+      </header>
+      <div class="store-assistant-messages" id="storeAssistantMessages" role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="store-assistant-message assistant"><p>أهلاً بك! اسألني عن المنتجات والمقاسات والأسعار والتوفر أو التوصيل.</p></div>
+      </div>
+      <div class="store-assistant-suggestions" id="storeAssistantSuggestions" aria-label="أسئلة مقترحة">
+        <button type="button">ما المقاسات المتاحة؟</button>
+        <button type="button">كم تكلفة التوصيل؟</button>
+        <button type="button">كيف أطلب؟</button>
+      </div>
+      <form class="store-assistant-form" id="storeAssistantForm">
+        <label class="visually-hidden" for="storeAssistantInput">اكتب سؤالك</label>
+        <textarea id="storeAssistantInput" dir="auto" rows="1" maxlength="600" placeholder="اكتب سؤالك هنا…" required></textarea>
+        <button type="submit" id="storeAssistantSend" aria-label="إرسال السؤال">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12 20 4l-5.5 16-2.7-6.2L4 12Z"/><path d="m11.8 13.8 4-4"/></svg>
+        </button>
+      </form>
+      <p class="store-assistant-privacy">المساعد يعتمد على بيانات المتجر الحالية ولا يطّلع على طلباتك. لا ترسل بيانات دفع أو معلومات شخصية.</p>
+    </section>
 <script type="module" src="script.js"></script>
 <script type="module" src="src/js/product-inquiry.js"></script>
+<script type="module" src="src/js/store-assistant.js"></script>
 </body>
 </html>
