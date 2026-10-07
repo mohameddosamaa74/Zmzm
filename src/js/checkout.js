@@ -1,6 +1,9 @@
+import { inject } from "@vercel/analytics";
 import { supabaseClient, supabaseConfigurationError } from "../../supabase-config.js";
 import { escapeHtml, normalizeDigits, safeImageUrl } from "./safe-dom.js";
 import { DELIVERY_TIME_NOTE, getShippingFee } from "./shipping.js";
+
+inject();
 
 const CART_STORAGE_KEY = "zmzm-cart";
 const CART_ITEM_LIMIT = 99;
