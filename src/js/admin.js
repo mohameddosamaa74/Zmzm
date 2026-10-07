@@ -38,6 +38,7 @@ let products = [];
 let orders = [];
 let inventoryRows = [];
 let productInquiries = [];
+let businessAnalyticsSnapshot = null;
 let selectedInquiry = null;
 let isAdmin = false;
 let productReorderBusy = false;
@@ -998,6 +999,126 @@ function renderAnalyticsTrend(rows) {
   document.getElementById("analyticsTrendEmpty").classList.toggle("hidden", Boolean(rows?.length));
 }
 
+function analyticsPercent(part, total) {
+  const denominator = Number(total || 0);
+  if (!denominator) return "—";
+  return `${((Number(part || 0) / denominator) * 100).toLocaleString("ar-EG", { maximumFractionDigits: 1 })}٪`;
+}
+
+function renderAnalyticsRankList(containerId, rows, { label, value, meta, formatter = formatMoney, tone = "blue" }) {
+  const container = document.getElementById(containerId);
+  const values = (rows || []).map((row) => Math.max(0, Number(value(row) || 0)));
+  const maximum = Math.max(...values, 0);
+  container.innerHTML = (rows || []).map((row, index) => {
+    const amount = values[index];
+    const width = maximum > 0 ? Math.max(3, (amount / maximum) * 100) : 0;
+    return `
+      <div class="analytics-rank-item">
+        <div class="analytics-rank-heading"><span title="${escapeHtml(label(row))}">${escapeHtml(label(row))}</span><strong>${escapeHtml(formatter(amount))}</strong></div>
+        <div class="analytics-rank-track" aria-hidden="true"><span class="analytics-rank-fill analytics-rank-fill-${tone}" style="width:${width.toFixed(2)}%"></span></div>
+        <small>${escapeHtml(meta(row))}</small>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderAnalyticsOrderMix(summary) {
+  const total = Number(summary.orders_count || 0);
+  const segments = [
+    { key: "delivered_orders", label: "تم التسليم", color: "#23936b" },
+    { key: "open_orders", label: "قيد التنفيذ", color: "#1769d4" },
+    { key: "cancelled_orders", label: "ملغي", color: "#e45d64" },
+  ].map((segment) => ({ ...segment, count: Number(summary[segment.key] || 0) }));
+  const known = segments.reduce((sum, segment) => sum + segment.count, 0);
+  if (Math.max(0, total - known) > 0) {
+    segments.push({ label: "حالات أخرى", color: "#a6b3c4", count: total - known });
+  }
+
+  let cursor = 0;
+  const stops = segments.map((segment) => {
+    const start = total ? (cursor / total) * 100 : 0;
+    cursor += segment.count;
+    const end = total ? (cursor / total) * 100 : 0;
+    return `${segment.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+  });
+  const chart = document.getElementById("analyticsOrderStatusChart");
+  chart.style.background = total ? `conic-gradient(${stops.join(",")})` : "conic-gradient(#e8edf4 0 100%)";
+  chart.setAttribute("aria-label", `توزيع ${formatCount(total)} طلب حسب الحالة`);
+  document.getElementById("analyticsOrderStatusTotal").innerHTML = `${formatCount(total)}<strong>طلب</strong>`;
+  document.getElementById("analyticsOrderStatusLegend").innerHTML = segments.map((segment) => `
+    <li><span class="analytics-legend-dot" style="--legend-color:${segment.color}"></span><span>${escapeHtml(segment.label)}</span><strong>${formatCount(segment.count)}</strong></li>
+  `).join("");
+}
+
+function exportBusinessAnalytics() {
+  const data = businessAnalyticsSnapshot;
+  if (!data) {
+    showToast("حدّث التحليلات أولاً لتصدير التقرير.");
+    return;
+  }
+
+  const summary = data.summary || {};
+  const accounts = data.accounts || {};
+  const inventory = data.inventory || {};
+  const inquiries = data.inquiries || {};
+  const rows = [
+    ["القسم", "البند", "المؤشر", "القيمة"],
+    ["معلومات التقرير", "الفترة", "", document.getElementById("analyticsRange").selectedOptions[0]?.textContent || data.period],
+    ["المبيعات", "الإجمالي", "عدد الطلبات", summary.orders_count],
+    ["المبيعات", "الطلبات المسلّمة", "عدد", summary.delivered_orders],
+    ["المبيعات", "صافي المبيعات", "ج.م", summary.net_sales],
+    ["المبيعات", "المردودات", "ج.م", summary.sales_returns],
+    ["الربحية", "تكلفة البضائع المباعة", "ج.م", summary.cost_of_goods ?? "غير مكتمل"],
+    ["الربحية", "إجمالي الربح", "ج.م", summary.gross_profit ?? "غير مكتمل"],
+    ["الحسابات", "الإيرادات", "ج.م", accounts.income],
+    ["الحسابات", "مردودات المبيعات", "ج.م", accounts.sales_returns],
+    ["الحسابات", "المصروفات", "ج.م", accounts.expenses],
+    ["الحسابات", "الصافي", "ج.م", accounts.net],
+    ["العملاء", "عملاء فريدون", "عدد", summary.customers_count],
+    ["العملاء", "عملاء متكررون", "عدد", summary.repeat_customers],
+    ...((data.trend || []).map((item) => ["الاتجاه الزمني", item.label, "صافي المبيعات ج.م", item.net_sales])),
+    ...((data.trend || []).map((item) => ["الاتجاه الزمني", item.label, "طلبات مسلّمة", item.delivered_orders])),
+    ...((data.products || []).flatMap((item) => [
+      ["المنتجات", item.product_name, "الوحدات المباعة", item.units_sold],
+      ["المنتجات", item.product_name, "الوحدات المرتجعة", item.units_returned],
+      ["المنتجات", item.product_name, "صافي المبيعات ج.م", item.net_sales],
+      ["المنتجات", item.product_name, "الربح ج.م", item.gross_profit ?? "غير مكتمل"],
+      ["المنتجات", item.product_name, "المتاح حالياً", item.available_now ?? "غير مجرود"],
+    ])),
+    ...((data.categories || []).flatMap((item) => [
+      ["الفئات", categoryNames[item.category] || item.category, "الوحدات المسلّمة", item.units_sold],
+      ["الفئات", categoryNames[item.category] || item.category, "صافي المبيعات ج.م", item.net_sales],
+      ["الفئات", categoryNames[item.category] || item.category, "الربح ج.م", item.gross_profit ?? "غير مكتمل"],
+    ])),
+    ...((data.customers || []).flatMap((item) => [
+      ["أفضل ٢٠ عميلاً", item.customer_name, `الهاتف: ${item.phone || "—"} · عدد الطلبات`, item.orders_count],
+      ["أفضل ٢٠ عميلاً", item.customer_name, "الطلبات المسلّمة", item.delivered_orders],
+      ["أفضل ٢٠ عميلاً", item.customer_name, "صافي المشتريات ج.م", item.net_sales],
+    ])),
+    ...((inquiries.top_products || []).flatMap((item) => [
+      ["الاستفسارات", item.product_name, "عدد الاستفسارات", item.request_count],
+      ["الاستفسارات", item.product_name, "استفسارات جديدة", item.new_count],
+    ])),
+    ["المخزون الحالي", "وحدات متاحة", "عدد", inventory.available_units],
+    ["المخزون الحالي", "وحدات محجوزة", "عدد", inventory.reserved_units],
+    ["المخزون الحالي", "منتجات منخفضة المخزون", "عدد", inventory.low_stock_products],
+    ["المخزون الحالي", "منتجات نفد مخزونها", "عدد", inventory.out_of_stock_products],
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map((cell) => {
+    const value = typeof cell === "string" && /^[\t\r\n ]*[=+\-@]/.test(cell) ? `'${cell}` : String(cell ?? "");
+    return `"${value.replaceAll('"', '""')}"`;
+  }).join(",")).join("\r\n")}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `zmzm-business-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function renderBusinessAnalytics(data) {
   const summary = data.summary || {};
   const accounts = data.accounts || {};
@@ -1017,10 +1138,10 @@ function renderBusinessAnalytics(data) {
   document.getElementById("analyticsCustomers").textContent = formatCount(summary.customers_count);
   document.getElementById("analyticsRepeatCustomers").textContent = `${formatCount(summary.repeat_customers)} عميل متكرر`;
   document.getElementById("analyticsOpenOrders").textContent = `${formatCount(summary.open_orders)} مفتوح`;
-  const returnRate = Number(summary.delivered_orders)
-    ? ((Number(summary.returned_orders || 0) / Number(summary.delivered_orders)) * 100).toLocaleString("ar-EG", { maximumFractionDigits: 1 })
+  const cancellationRate = Number(summary.orders_count)
+    ? ((Number(summary.cancelled_orders || 0) / Number(summary.orders_count)) * 100).toLocaleString("ar-EG", { maximumFractionDigits: 1 })
     : "٠";
-  document.getElementById("analyticsCancelledOrders").textContent = `${formatCount(summary.cancelled_orders)} ملغي · معدل المرتجعات ${returnRate}٪`;
+  document.getElementById("analyticsCancelledOrders").textContent = `${formatCount(summary.cancelled_orders)} ملغي · معدل الإلغاء ${cancellationRate}٪`;
   document.getElementById("analyticsInquiryCount").textContent = formatCount(inquiries.count);
   document.getElementById("analyticsNewInquiries").textContent = `${formatCount(inquiries.new_count)} بانتظار المراجعة`;
   document.getElementById("analyticsAvailableUnits").textContent = formatCount(inventory.available_units);
@@ -1028,7 +1149,65 @@ function renderBusinessAnalytics(data) {
   document.getElementById("analyticsLowStock").textContent = formatCount(inventory.low_stock_products);
   document.getElementById("analyticsOutOfStock").textContent = formatCount(inventory.out_of_stock_products);
 
+  const grossMargin = summary.gross_profit == null || !Number(summary.net_sales)
+    ? "—"
+    : analyticsPercent(summary.gross_profit, summary.net_sales);
+  document.getElementById("analyticsGrossMargin").textContent = grossMargin;
+  document.getElementById("analyticsDeliveryRate").textContent = analyticsPercent(summary.delivered_orders, summary.orders_count);
+  document.getElementById("analyticsReturnRate").textContent = analyticsPercent(summary.returned_orders, summary.delivered_orders);
+  document.getElementById("analyticsRepeatRate").textContent = analyticsPercent(summary.repeat_customers, summary.customers_count);
+
   renderAnalyticsTrend(data.trend || []);
+  renderAnalyticsOrderMix(summary);
+  document.getElementById("analyticsAccountsNet").textContent = formatMoney(accounts.net);
+  const accountRows = [
+    { label: "الإيرادات", value: accounts.income, tone: "green" },
+    { label: "مردودات المبيعات", value: accounts.sales_returns, tone: "red" },
+    { label: "المصروفات", value: accounts.expenses, tone: "orange" },
+  ].filter((row) => Number(row.value || 0) > 0);
+  renderAnalyticsRankList("analyticsAccountsChart", accountRows, {
+    label: (row) => row.label,
+    value: (row) => row.value,
+    meta: () => "من قيود الحسابات في الفترة المحددة",
+    tone: "mixed",
+  });
+  document.getElementById("analyticsAccountsChart").querySelectorAll(".analytics-rank-fill").forEach((bar, index) => {
+    bar.classList.add(`analytics-rank-fill-${accountRows[index]?.tone || "blue"}`);
+  });
+
+  const categoryRows = (data.categories || []).slice(0, 6);
+  renderAnalyticsRankList("analyticsCategoryChart", categoryRows, {
+    label: (row) => categoryNames[row.category] || row.category || "أخرى",
+    value: (row) => row.net_sales,
+    meta: (row) => `${formatCount(row.units_sold)} وحدة مسلّمة · الربح ${row.gross_profit == null ? "غير مكتمل" : formatMoney(row.gross_profit)}`,
+  });
+  document.getElementById("analyticsCategoryChartEmpty").classList.toggle("hidden", Boolean(categoryRows.length));
+
+  const productRows = (data.products || []).slice(0, 6);
+  renderAnalyticsRankList("analyticsProductChart", productRows, {
+    label: (row) => row.product_name || "منتج",
+    value: (row) => row.net_sales,
+    meta: (row) => `${formatCount(row.units_sold)} مباع · ${formatCount(row.units_returned)} مرتجع`,
+  });
+  document.getElementById("analyticsProductChartEmpty").classList.toggle("hidden", Boolean(productRows.length));
+
+  const customerRows = (data.customers || []).slice(0, 6);
+  renderAnalyticsRankList("analyticsCustomerChart", customerRows, {
+    label: (row) => row.customer_name || "عميل",
+    value: (row) => row.net_sales,
+    meta: (row) => `${formatCount(row.delivered_orders)} طلب مسلّم · ${formatCount(row.orders_count)} إجمالي الطلبات`,
+  });
+  document.getElementById("analyticsCustomerChartEmpty").classList.toggle("hidden", Boolean(customerRows.length));
+
+  const inquiryRows = (inquiries.top_products || []).slice(0, 6);
+  renderAnalyticsRankList("analyticsInquiryChart", inquiryRows, {
+    label: (row) => row.product_name || "منتج مطلوب",
+    value: (row) => row.request_count,
+    meta: (row) => `${formatCount(row.new_count)} جديد · آخر طلب ${formatAdminDate(row.last_requested_at)}`,
+    formatter: formatCount,
+    tone: "purple",
+  });
+  document.getElementById("analyticsInquiryChartEmpty").classList.toggle("hidden", Boolean(inquiryRows.length));
 
   const productsBody = document.getElementById("analyticsProductsBody");
   productsBody.innerHTML = (data.products || []).map((product) => `
@@ -1091,7 +1270,9 @@ async function loadBusinessAnalytics() {
       p_period: document.getElementById("analyticsRange").value,
     });
     if (error) throw error;
-    renderBusinessAnalytics(data || {});
+    businessAnalyticsSnapshot = data || {};
+    renderBusinessAnalytics(businessAnalyticsSnapshot);
+    document.getElementById("analyticsUpdatedAt").textContent = `آخر تحديث: ${formatAdminDate(new Date(), true)}`;
   } catch (error) {
     console.error("تعذر تحميل تحليلات الأعمال.", error);
     showToast("تعذر تحميل التحليلات. تأكد من تطبيق إعدادات التحليلات في Supabase.");
@@ -1486,6 +1667,7 @@ document.getElementById("inquiryDetailsForm").addEventListener("submit", async (
 });
 document.getElementById("refreshAnalytics").addEventListener("click", loadBusinessAnalytics);
 document.getElementById("analyticsRange").addEventListener("change", loadBusinessAnalytics);
+document.getElementById("exportAnalytics").addEventListener("click", exportBusinessAnalytics);
 document.getElementById("accountEntryType").addEventListener("change", updateAccountCategoryOptions);
 document.getElementById("closeAccountEntryDialog").addEventListener("click", () => accountEntryDialog.close());
 document.getElementById("cancelAccountEntry").addEventListener("click", () => accountEntryDialog.close());

@@ -413,8 +413,9 @@
         <section class="admin-view hidden" id="analytics">
           <section class="panel analytics-controls">
             <div>
-              <h2>نظرة شاملة على النشاط</h2>
-              <p class="module-hint">المبيعات والربح من الطلبات المسلّمة بعد خصم المرتجعات، وفق تاريخ إنشاء الطلب. صافي الحسابات وفق تاريخ القيد المالي.</p>
+              <h2>لوحة تحليلات الأعمال</h2>
+              <p class="module-hint">صورة موحّدة للمبيعات والربحية والطلبات والعملاء والمنتجات والمخزون والاستفسارات.</p>
+              <small class="analytics-updated" id="analyticsUpdatedAt">لم يتم تحديث البيانات بعد</small>
             </div>
             <div class="orders-panel-actions analytics-toolbar">
               <label for="analyticsRange">الفترة</label>
@@ -425,6 +426,7 @@
                 <option value="365d">آخر ١٢ شهراً</option>
                 <option value="all">كل الفترات</option>
               </select>
+              <button class="btn btn-secondary" type="button" id="exportAnalytics">تصدير التقرير</button>
               <button class="btn btn-secondary" type="button" id="refreshAnalytics">تحديث التحليلات</button>
             </div>
           </section>
@@ -438,13 +440,57 @@
             <article class="stat-card"><span>عملاء فريدون</span><strong id="analyticsCustomers">٠</strong><small id="analyticsRepeatCustomers">٠ عميل متكرر</small></article>
             <article class="stat-card"><span>حالة الطلبات</span><strong id="analyticsOpenOrders">٠ مفتوح</strong><small id="analyticsCancelledOrders">٠ ملغي · معدل المرتجعات ٠٪</small></article>
             <article class="stat-card"><span>استفسارات المنتجات</span><strong id="analyticsInquiryCount">٠</strong><small id="analyticsNewInquiries">٠ بانتظار المراجعة</small></article>
+            <article class="stat-card analytics-kpi-highlight"><span>هامش الربح</span><strong id="analyticsGrossMargin">—</strong><small>الربح من صافي المبيعات</small></article>
+            <article class="stat-card analytics-kpi-highlight"><span>معدل تسليم الطلبات</span><strong id="analyticsDeliveryRate">—</strong><small>الطلبات المسلّمة من إجمالي الطلبات</small></article>
+            <article class="stat-card analytics-kpi-highlight"><span>معدل المرتجعات</span><strong id="analyticsReturnRate">—</strong><small>الطلبات التي سجلت مرتجعاً</small></article>
+            <article class="stat-card analytics-kpi-highlight"><span>العملاء المتكررون</span><strong id="analyticsRepeatRate">—</strong><small>نسبة العملاء الذين اشتروا أكثر من مرة</small></article>
           </div>
 
           <section class="panel module-panel analytics-panel">
-            <div class="panel-head"><div><h2>اتجاه الطلبات والمبيعات</h2><p class="module-hint">قيمة المنتجات المسلّمة بحسب تاريخ إنشاء الطلب.</p></div></div>
+            <div class="panel-head"><div><h2>اتجاه الطلبات والمبيعات</h2><p class="module-hint">قيمة المنتجات المسلّمة والطلبات عبر الفترة المحددة، وفق تاريخ إنشاء الطلب.</p></div></div>
             <div class="analytics-trend" id="analyticsTrend" role="img" aria-label="مخطط الطلبات والمبيعات خلال الفترة"></div>
             <p class="orders-empty hidden" id="analyticsTrendEmpty">لا توجد بيانات لهذه الفترة.</p>
           </section>
+
+          <div class="analytics-visual-grid">
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>توزيع الطلبات</h2><p class="module-hint">حصة كل حالة من إجمالي الطلبات في الفترة.</p></div></div>
+              <div class="analytics-status-layout">
+                <div class="analytics-donut" id="analyticsOrderStatusChart" role="img" aria-label="توزيع الطلبات حسب الحالة"><span id="analyticsOrderStatusTotal">٠<strong>طلب</strong></span></div>
+                <ul class="analytics-legend" id="analyticsOrderStatusLegend"></ul>
+              </div>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>ملخص الحسابات</h2><p class="module-hint">الإيرادات والمردودات والمصروفات خلال الفترة المحددة.</p></div></div>
+              <div class="analytics-rank-list" id="analyticsAccountsChart"></div>
+              <div class="analytics-net-balance"><span>صافي الحسابات</span><strong id="analyticsAccountsNet">—</strong></div>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>مبيعات الفئات</h2><p class="module-hint">مقارنة صافي المبيعات وعدد الوحدات المسلّمة.</p></div></div>
+              <div class="analytics-rank-list" id="analyticsCategoryChart"></div>
+              <p class="orders-empty hidden" id="analyticsCategoryChartEmpty">لا توجد بيانات فئات لهذه الفترة.</p>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>المنتجات الأعلى مبيعاً</h2><p class="module-hint">ترتيب المنتجات حسب صافي مبيعاتها بعد المرتجعات.</p></div></div>
+              <div class="analytics-rank-list" id="analyticsProductChart"></div>
+              <p class="orders-empty hidden" id="analyticsProductChartEmpty">لا توجد مبيعات مسلّمة لهذه الفترة.</p>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>العملاء الأعلى قيمة</h2><p class="module-hint">أفضل العملاء حسب صافي قيمة المشتريات المسلّمة.</p></div></div>
+              <div class="analytics-rank-list" id="analyticsCustomerChart"></div>
+              <p class="orders-empty hidden" id="analyticsCustomerChartEmpty">لا توجد بيانات عملاء لهذه الفترة.</p>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>الطلب على المنتجات</h2><p class="module-hint">أكثر المنتجات وروداً في استفسارات العملاء.</p></div></div>
+              <div class="analytics-rank-list" id="analyticsInquiryChart"></div>
+              <p class="orders-empty hidden" id="analyticsInquiryChartEmpty">لا توجد استفسارات لهذه الفترة.</p>
+            </section>
+          </div>
 
           <div class="analytics-two-column">
             <section class="panel module-panel analytics-panel">
