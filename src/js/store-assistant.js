@@ -110,8 +110,8 @@ function appendMessage(role, text, extraClass = "") {
 function setPanelOpen(isOpen) {
   panel.hidden = !isOpen;
   toggle.setAttribute("aria-expanded", String(isOpen));
-  if (isOpen) input.focus();
-  else toggle.focus({ preventScroll: true });
+  if (isOpen && window.matchMedia("(pointer: fine)").matches) input.focus();
+  if (!isOpen) toggle.focus({ preventScroll: true });
 }
 
 function setSending(sending) {
@@ -252,7 +252,7 @@ function deliveryReply(question, english = false) {
   ].join("، ");
   return english
     ? `Delivery usually takes 2–5 days. Shipping is free from 500 EGP. Below that: Suez 40 EGP; Cairo, Giza, Ismailia, and Port Said 65 EGP; other governorates 85 EGP. Which governorate are you in?`
-    : `مدة التوصيل ${DELIVERY_TIME_NOTE.replace("مدة التوصيل ", "")}. الشحن مجاني للطلبات من ٥٠٠ جنيه فأكثر. وللطلبات الأقل: ${fees}. ما المحافظة التي تريد التوصيل إليها؟`;
+    : `مدة التوصيل ${DELIVERY_TIME_NOTE.replace("مدة التوصيل ", "").replace(/[.]$/, "")}. الشحن مجاني للطلبات من ٥٠٠ جنيه فأكثر. وللطلبات الأقل: ${fees}. ما المحافظة التي تريد التوصيل إليها؟`;
 }
 
 function isDeliveryQuestion(question) {
