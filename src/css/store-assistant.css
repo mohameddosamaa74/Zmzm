@@ -6,30 +6,94 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 50px;
-  padding: 0 17px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 5px 7px 5px 14px;
   border: 0;
   border-radius: 999px;
-  background: var(--blue);
+  background: linear-gradient(135deg, #1f7af0, #145fc3);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(16, 44, 79, .2);
-  font-size: 13px;
+  box-shadow: 0 9px 26px rgba(16, 67, 133, .3);
+  font-size: 14px;
   font-weight: 800;
+  isolation: isolate;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
 }
 
 .store-assistant-toggle:hover {
   background: #1059bb;
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(16, 67, 133, .35);
 }
 
-.store-assistant-toggle svg {
-  width: 22px;
-  height: 22px;
-  stroke: currentColor;
+.store-assistant-toggle::after {
+  position: absolute;
+  z-index: 0;
+  inset: -4px;
+  border: 2px solid rgba(35, 125, 239, .42);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: assistant-attention 3.8s ease-out infinite;
+}
+
+.store-assistant-toggle[aria-expanded="true"]::after {
+  animation: none;
+  opacity: 0;
+}
+
+.store-assistant-toggle > span {
+  position: relative;
+  z-index: 1;
+}
+
+.store-assistant-logo,
+.store-assistant-header-logo {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .38);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #48b4ff, #1264d1 72%);
+  box-shadow: inset 0 1px 5px rgba(255, 255, 255, .25), 0 3px 9px rgba(8, 44, 92, .25);
+}
+
+.store-assistant-logo {
+  width: 40px;
+  height: 40px;
+  animation: assistant-float 2.7s ease-in-out infinite;
+}
+
+.store-assistant-logo svg,
+.store-assistant-header-logo svg {
+  width: 31px;
+  height: 31px;
+  overflow: visible;
+}
+
+.assistant-logo-bubble {
+  fill: rgba(255, 255, 255, .12);
+  stroke: #fff;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.assistant-logo-z {
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.assistant-logo-spark {
+  stroke: #ffdf83;
+  stroke-linecap: round;
   stroke-width: 1.8;
+  transform-origin: 25px 5.5px;
+  animation: assistant-sparkle 2.7s ease-in-out infinite;
 }
 
 .store-assistant-panel {
@@ -64,20 +128,32 @@
   background: #fbfdff;
 }
 
-.store-assistant-header > div {
+.store-assistant-header-brand {
   display: flex;
   align-items: center;
   gap: 11px;
 }
 
-.store-assistant-status-dot {
-  width: 11px;
-  height: 11px;
-  flex: 0 0 11px;
-  border: 3px solid #d9f4e6;
+.store-assistant-header-logo {
+  width: 42px;
+  height: 42px;
+  overflow: visible;
+}
+
+.store-assistant-header-logo .store-assistant-status-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
   border-radius: 50%;
   background: #24a36d;
-  box-sizing: content-box;
+  box-shadow: 0 1px 4px rgba(16, 44, 79, .16);
+}
+
+.store-assistant-status-dot {
+  box-sizing: border-box;
 }
 
 .store-assistant-header h2 {
@@ -260,8 +336,14 @@
   .store-assistant-toggle {
     bottom: 14px;
     left: 14px;
-    min-height: 46px;
-    padding-inline: 14px;
+    min-height: 54px;
+    padding-inline: 7px 14px;
+    font-size: 13px;
+  }
+
+  .store-assistant-logo {
+    width: 38px;
+    height: 38px;
   }
 
   .store-assistant-panel {
@@ -275,7 +357,27 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .store-assistant-toggle {
+  .store-assistant-toggle,
+  .store-assistant-toggle::after,
+  .store-assistant-logo,
+  .assistant-logo-spark {
     transition: none;
+    animation: none;
   }
+}
+
+@keyframes assistant-attention {
+  0%, 72%, 100% { transform: scale(1); opacity: 0; }
+  8% { opacity: .85; }
+  42% { transform: scale(1.09); opacity: 0; }
+}
+
+@keyframes assistant-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes assistant-sparkle {
+  0%, 66%, 100% { opacity: .65; transform: scale(.8) rotate(0); }
+  78% { opacity: 1; transform: scale(1.15) rotate(35deg); }
 }
