@@ -16,8 +16,11 @@ const STOP_WORDS = new Set([
   "ايه", "هل", "من", "في", "على", "لو", "ما", "ماذا", "ممكن", "عايز", "عاوز", "اريد", "ابغى",
   "عندكم", "عند", "لديكم", "لدي", "كم", "بكام", "سعر", "السعر", "اسعار", "الاسعار", "مقاس",
   "مقاسات", "متاح", "متاحة", "متاحه", "موجود", "موجودة", "موجوده", "متوفر", "متوفرة", "متوفره",
-  "المنتج", "منتجات", "المنتجات", "الكمية", "كمية", "مخزون", "المخزون", "علي", "عايزه", "عاوزه",
+  "المنتج", "منتج", "منتجات", "المنتجات", "صنف", "سلعه", "الكمية", "كمية", "مخزون", "المخزون", "علي", "عايزه", "عاوزه",
   "السلام", "عليكم", "مرحبا", "اهلا", "لو", "سمحت", "بعد", "من", "فضلك", "عايزين", "مع",
+  "do", "you", "have", "does", "is", "the", "what", "for", "with", "i", "want", "need", "can",
+  "show", "me", "how", "much", "are", "there", "please", "any", "of", "a", "an", "from", "on", "at",
+  "looking", "find", "get", "sell", "selling", "your", "our", "currently", "product", "products", "item", "items",
 ]);
 
 const GOVERNORATES = [
@@ -34,6 +37,7 @@ let isSending = false;
 let cachedCatalog = null;
 let catalogLoadedAt = 0;
 let selectedProductId = null;
+let inquiryFlow = null;
 
 function normalizeText(value) {
   return normalizeDigits(String(value || ""))
@@ -197,6 +201,82 @@ function getProductMatches(question, catalog) {
     .slice(0, 5);
 }
 
+function getReliableProductMatches(question, catalog) {
+  const questionTokens = [...new Set(tokens(question).filter((token) => !STOP_WORDS.has(token) && token.length > 1))];
+  if (!questionTokens.length) return [];
+  const questionTokenSet = new Set(questionTokens);
+
+  return getProductMatches(question, catalog).filter((entry) => {
+    if (entry.matchedCount >= 2 && entry.matchedCount / questionTokens.length >= 0.8) return true;
+    const coreNameTokens = [...new Set(tokens(entry.product.name)
+      .filter((token) => !STOP_WORDS.has(token) && token.length > 1 && !/^\d+$/.test(token)))];
+    return coreNameTokens.length >= 2 && coreNameTokens.every((token) => questionTokenSet.has(token));
+  });
+}
+
+function hasProductCue(question) {
+  return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|board|box|cake|product|item|cupcake|packaging|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
+}
+
+function getInquiryProductName(question) {
+  let name = String(question || "").trim();
+  name = name.replace(/^(?:(?:do you have|do you sell|is there|can i get|i need|i want|looking for|find me)\s+)/i, "");
+  name = name.replace(/^(?:(?:هل\s*)?(?:عندكم|يتوفر|متوفر|موجود|يوجد|فيه|ممكن\s+توفروا|اريد|عايز|عاوزه|عاوز|محتاج|محتاجه|ابغى)\s*)/i, "");
+  name = name.replace(/[؟?!.,،]+$/g, "").trim();
+  return name || String(question || "").trim();
+}
+
+function isAffirmative(text) {
+  return /^(نعم|ايوه|اه|تمام|ماشي|yes|y|sure|ok|okay|please|سجل|سجله|سجلي|اعاده|اعادة|retry)(\s+(please|من فضلك|لو سمحت))?$/i.test(normalizeText(text));
+}
+
+function isNegative(text) {
+  return /^(لا|مش|no|n|not really)(\s+(شكرا|thanks|thank you))?$/i.test(normalizeText(text));
+}
+
+async function submitProductInquiry(productName) {
+  if (!supabaseClient) return { ok: false, status: 0 };
+  try {
+    const { error } = await supabaseClient.functions.invoke("create-product-inquiry", {
+      body: { product_name: productName, description: null, website: "" },
+    });
+    if (error) return { ok: false, status: Number(error.context?.status) || 0 };
+    return { ok: true, status: 200 };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+function inquirySaveReply(productName, english = false) {
+  return english
+    ? `“${productName}” is not in our current product list. I’ve saved your request in our inquiries so the team can review it.`
+    : `المنتج «${productName}» غير موجود ضمن منتجاتنا الحالية، وقد سجلت طلبك في قسم الاستفسارات ليراجعه الفريق.`;
+}
+
+function inquiryFailureReply(status, english = false) {
+  if (status === 429) {
+    return english
+      ? "I couldn’t save this request because too many inquiries were sent recently. Please wait a little and try again."
+      : "تعذر تسجيل الطلب بسبب كثرة الاستفسارات مؤخرًا. انتظر قليلًا ثم حاول مرة أخرى.";
+  }
+  if (status === 503) {
+    return english
+      ? "The inquiries service is temporarily unavailable, so your request was not saved. Please try again later using the product inquiry form."
+      : "خدمة الاستفسارات غير متاحة مؤقتًا، لذلك لم يُحفظ طلبك. حاول لاحقًا من نموذج «أرسل استفسارك» في الصفحة.";
+  }
+  return english
+    ? "I couldn’t save your request right now. It has not been recorded; please try again later using the product inquiry form on the page."
+    : "لم أتمكن من تسجيل طلبك الآن، لذلك لم يُحفظ. حاول مرة أخرى لاحقًا من نموذج «أرسل استفسارك» في الصفحة.";
+}
+
+async function saveInquiryAndReply(productName, english = false) {
+  const result = await submitProductInquiry(productName);
+  return {
+    ok: result.ok,
+    text: result.ok ? inquirySaveReply(productName, english) : inquiryFailureReply(result.status, english),
+  };
+}
+
 function formatMoney(value, english = false) {
   const amount = new Intl.NumberFormat(english ? "en-EG" : "ar-EG", { maximumFractionDigits: 2 }).format(value);
   return english ? `${amount} EGP` : `${amount} ج.م`;
@@ -260,7 +340,7 @@ function isDeliveryQuestion(question) {
 }
 
 function isProductListQuestion(question) {
-  return /(المنتجات|منتجاتكم|المنتج|مقاسات|المقاسات|المتاح|الموجود|عندكم|اعرض|وريني|قائمة المنتجات|البضاعة|الاصناف|الاسعار|قائمة الاسعار|products|catalog|available|in stock|what do you have|show me)/i.test(question);
+  return /(قائمة المنتجات|اعرض المنتجات|عرض المنتجات|وريني المنتجات|كل المنتجات|منتجاتكم|البضاعة|الاصناف|قائمة الاسعار|اسعار المنتجات|list (your )?(products|items)|show (me )?(your )?(products|catalog|items)|what products|what do you have|product catalog|catalog)/i.test(normalizeText(question));
 }
 
 function answerStaticQuestion(question) {
@@ -298,35 +378,37 @@ function answerStaticQuestion(question) {
 
 function answerQuestion(question, catalog) {
   const english = isEnglish(question);
-  const matches = getProductMatches(question, catalog);
+  if (isProductListQuestion(question)) {
+    if (!catalog.length) return { type: "answer", text: english ? "There are no listed products right now." : "لا توجد منتجات معروضة حاليًا." };
+    const heading = english ? "Here are some products from the current catalog:" : "هذه بعض المنتجات الموجودة في الكتالوج الحالي:";
+    return { type: "answer", text: [heading, ...catalog.slice(0, 8).map((product) =>
+      `${product.name} — ${formatMoney(product.price, english)} · ${stockText(product, english)}`
+    )].join("\n") };
+  }
+
+  const matches = getReliableProductMatches(question, catalog);
   if (matches.length) {
     if (matches.length === 1 || matches[0].score - matches[1].score >= 4) {
       selectedProductId = matches[0].product.id;
-      return productSummary(matches[0].product, english);
+      return { type: "answer", text: productSummary(matches[0].product, english) };
     }
     selectedProductId = null;
     const heading = english ? "I found a few matching products. Which one do you mean?" : "وجدت أكثر من منتج قريب من وصفك. أيّها تقصد؟";
-    return [heading, ...matches.slice(0, 4).map(({ product }) =>
+    return { type: "answer", text: [heading, ...matches.slice(0, 4).map(({ product }) =>
       `${product.name} — ${formatMoney(product.price, english)} · ${stockText(product, english)}`
-    )].join("\n");
+    )].join("\n") };
   }
 
-  if (selectedProductId !== null && /(السعر|سعر|متاح|مخزون|الكمية|كمية|مقاس|المقاس|price|stock|available|size|quantity)/i.test(normalizeText(question))) {
+  if (selectedProductId !== null && !hasProductCue(question) && /(السعر|سعر|متاح|مخزون|الكمية|كمية|مقاس|المقاس|price|stock|available|size|quantity)/i.test(normalizeText(question))) {
     const previousProduct = catalog.find((product) => product.id === selectedProductId);
-    if (previousProduct) return productSummary(previousProduct, english);
+    if (previousProduct) return { type: "answer", text: productSummary(previousProduct, english) };
   }
 
-  if (isProductListQuestion(question)) {
-    if (!catalog.length) return english ? "There are no listed products right now." : "لا توجد منتجات معروضة حاليًا.";
-    const heading = english ? "Here are some products from the current catalog:" : "هذه بعض المنتجات الموجودة في الكتالوج الحالي:";
-    return [heading, ...catalog.slice(0, 8).map((product) =>
-      `${product.name} — ${formatMoney(product.price, english)} · ${stockText(product, english)}`
-    )].join("\n");
+  if (hasProductCue(question) && [...new Set(tokens(question).filter((token) => !STOP_WORDS.has(token) && token.length > 1))].length >= 2) {
+    return { type: "missing_product", productName: getInquiryProductName(question) };
   }
 
-  return english
-    ? `I can help with products, sizes, current prices and stock, delivery, and how to order. For other questions, contact Zmzm at ${CONTACT_NUMBER}.`
-    : `أقدر أساعدك في المنتجات ومقاساتها وأسعارها وتوفرها والتوصيل وطريقة الطلب. اكتب اسم المنتج أو سؤالك عن التوصيل، وللاستفسارات الأخرى تواصل مع زمزم على ${CONTACT_NUMBER}.`;
+  return { type: "unclear" };
 }
 
 async function sendMessage(text) {
@@ -339,11 +421,29 @@ async function sendMessage(text) {
   input.value = "";
   input.style.height = "auto";
 
-  const staticAnswer = answerStaticQuestion(cleanText);
-  if (staticAnswer) {
-    appendMessage("assistant", staticAnswer);
-    input.focus();
-    return;
+  if (inquiryFlow?.step === "awaiting_product_name") {
+    if (isNegative(cleanText)) {
+      inquiryFlow = null;
+      appendMessage("assistant", isEnglish(cleanText)
+        ? "No problem. Please rephrase your question and I’ll try to help."
+        : "حسنًا. وضّح سؤالك بطريقة أخرى وسأحاول مساعدتك.");
+      input.focus();
+      return;
+    }
+    if (isAffirmative(cleanText)) {
+      appendMessage("assistant", isEnglish(cleanText)
+        ? "Please type the product name you’re looking for. I’ll check the catalog and save it to inquiries if it isn’t listed."
+        : "اكتب اسم المنتج الذي تبحث عنه. سأتحقق من قائمة المنتجات، وإذا لم يكن موجودًا فسأسجله في الاستفسارات.");
+      input.focus();
+      return;
+    }
+  } else {
+    const staticAnswer = answerStaticQuestion(cleanText);
+    if (staticAnswer) {
+      appendMessage("assistant", staticAnswer);
+      input.focus();
+      return;
+    }
   }
 
   setSending(true);
@@ -352,10 +452,51 @@ async function sendMessage(text) {
   try {
     const catalog = await loadCatalog();
     typingMessage.remove();
-    appendMessage("assistant", answerQuestion(cleanText, catalog));
+
+    if (inquiryFlow?.step === "awaiting_product_name") {
+      const result = answerQuestion(cleanText, catalog);
+      if (result.type === "answer") {
+        inquiryFlow = null;
+        appendMessage("assistant", result.text);
+      } else {
+        const productName = getInquiryProductName(cleanText);
+        if (productName.length > 160) {
+          appendMessage("assistant", isEnglish(cleanText)
+            ? "Please send a shorter product name (up to 160 characters) so I can save it."
+            : "اسم المنتج طويل. اكتب اسمًا أقصر (حتى ١٦٠ حرفًا) لأتمكن من تسجيله.");
+        } else {
+          const result = await saveInquiryAndReply(productName, isEnglish(cleanText));
+          inquiryFlow = result.ok ? null : { step: "awaiting_product_name" };
+          appendMessage("assistant", result.text);
+        }
+      }
+    } else {
+      const result = answerQuestion(cleanText, catalog);
+      if (result.type === "missing_product") {
+        if (!result.productName || result.productName.length > 160) {
+          inquiryFlow = { step: "awaiting_product_name" };
+          appendMessage("assistant", isEnglish(cleanText)
+            ? "That product isn’t in our current catalog. Please type its name briefly and I’ll send it to inquiries."
+            : "هذا المنتج غير موجود ضمن منتجاتنا الحالية. اكتب اسمه باختصار وسأرسله إلى قسم الاستفسارات.");
+        } else {
+          const inquiryResult = await saveInquiryAndReply(result.productName, isEnglish(cleanText));
+          inquiryFlow = inquiryResult.ok ? null : { step: "awaiting_product_name" };
+          appendMessage("assistant", inquiryResult.text);
+        }
+      } else if (result.type === "unclear") {
+        inquiryFlow = { step: "awaiting_product_name" };
+        appendMessage("assistant", isEnglish(cleanText)
+          ? "I didn’t understand. Are you asking about a specific product? Type its name and I’ll check the catalog; if it isn’t listed, I’ll save it in inquiries."
+          : "لم أفهم سؤالك. هل تسأل عن منتج محدد؟ اكتب اسمه وسأتحقق من القائمة، وإذا لم يكن موجودًا فسأسجله في الاستفسارات.");
+      } else {
+        appendMessage("assistant", result.text);
+      }
+    }
   } catch {
     typingMessage.remove();
-    appendMessage("assistant", "تعذر الوصول إلى معلومات المتجر الآن. حاول مرة أخرى بعد قليل أو تواصل معنا على 01024311053.");
+    appendMessage("assistant", isEnglish(cleanText)
+      ? "I can’t reach the store information right now. Please try again shortly or contact us at 01024311053."
+      : "تعذر الوصول إلى معلومات المتجر الآن. حاول مرة أخرى بعد قليل أو تواصل معنا على 01024311053.");
   } finally {
     setSending(false);
     input.focus();
