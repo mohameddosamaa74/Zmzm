@@ -1,6 +1,6 @@
 import { supabaseClient } from "../../supabase-config.js";
 import { normalizeDigits } from "./safe-dom.js";
-import { DELIVERY_TIME_NOTE, getShippingFee } from "./shipping.js";
+import { DELIVERY_TIME_NOTE, FREE_SHIPPING_THRESHOLD, getShippingFee } from "./shipping.js";
 
 const toggle = document.getElementById("storeAssistantToggle");
 const panel = document.getElementById("storeAssistantPanel");
@@ -21,6 +21,8 @@ const STOP_WORDS = new Set([
   "do", "you", "have", "does", "is", "the", "what", "for", "with", "i", "want", "need", "can",
   "show", "me", "how", "much", "are", "there", "please", "any", "of", "a", "an", "from", "on", "at",
   "looking", "find", "get", "sell", "selling", "your", "our", "currently", "product", "products", "item", "items",
+  "cheapest", "cheap", "lowest", "price", "prices", "expensive", "most", "available", "sizes", "size",
+  "ارخص", "الارخص", "الاقل", "اغلي", "الاغلي", "الاعلي", "الاكبر", "الاصغر", "متاحه",
 ]);
 
 const GOVERNORATES = [
@@ -118,7 +120,9 @@ function tokens(value) {
 }
 
 function isEnglish(text) {
-  return /[a-z]/i.test(text);
+  const arabicLetters = (String(text || "").match(/[\u0621-\u064A\u066E-\u06D3]/g) || []).length;
+  const latinLetters = (String(text || "").match(/[a-z]/gi) || []).length;
+  return latinLetters > arabicLetters;
 }
 
 function findGovernorate(text) {
@@ -328,13 +332,95 @@ function hasProductCue(question) {
   return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|board|box|cake|product|item|cupcake|packaging|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
 }
 
+function isSizeCatalogQuestion(question) {
+  const text = normalizeText(question);
+  const withoutSizeWords = text.replace(/مقاسات|المقاس|احجام|حجم|sizes?|dimensions?/gi, "");
+  return /(مقاسات|المقاس|احجام|حجم|sizes?|dimensions?)/i.test(text) && !hasProductCue(withoutSizeWords);
+}
+
+function getCategoryBrowseIntent(question) {
+  const text = normalizeText(question);
+  if (/(كب كيك|كبكيك|cup\s*cakes?)/i.test(text)) return "cupcakes";
+  if (/(علب|علبه|بوكس|boxes?|cake box)/i.test(text)) return "boxes";
+  if (/(قواعد|قاعده|لوح|boards?|bases?)/i.test(text)) return "boards";
+  if (/(تغليف|شرائط|ربطه|packaging|ribbons?)/i.test(text)) return "packaging";
+  return null;
+}
+
+function isBroadCategoryRequest(question) {
+  return Boolean(getCategoryBrowseIntent(question))
+    && !/(\d|ابيض|بيج|ذهبي|فضي|مربع|مستطيل|دائري|white|beige|gold|silver|square|rectangular|round)/i.test(normalizeText(question));
+}
+
+function getPriceSort(question) {
+  const text = normalizeText(question);
+  if (/(ارخص|الارخص|الاقل سعرا|اقل سعر|cheapest|cheaper|lowest price|most affordable)/i.test(text)) return "asc";
+  if (/(اغلي|الاغلي|الاعلي سعرا|اعلي سعر|most expensive|highest price|priciest)/i.test(text)) return "desc";
+  return null;
+}
+
+function isSizeQuestion(question) {
+  return /(مقاس|مقاسات|المقاس|حجم|احجام|size|dimension)/i.test(normalizeText(question));
+}
+
+function isMaterialQuestion(question) {
+  return /(خامة|خامه|الخامة|الخامه|مصنوع|مصنوعة|ماده|الماده|امن للاكل|امن غذائ|مواد|material|made of|food grade|food safe|safe for food)/i.test(normalizeText(question));
+}
+
+function productListReply(products, english, heading) {
+  const limit = 10;
+  const lines = products.slice(0, limit).map((product) => {
+    const details = specsText(product);
+    return `${product.name} — ${formatMoney(product.price, english)}${details ? ` · ${details}` : ""} · ${stockText(product, english)}`;
+  });
+  if (products.length > limit) {
+    lines.push(english
+      ? `Showing ${limit} items. Ask about a category or product name to narrow the list.`
+      : `تظهر أول ${new Intl.NumberFormat("ar-EG").format(limit)} منتجات. اسأل عن فئة أو اسم منتج لتضييق القائمة.`);
+  }
+  return [heading, ...lines].join("\n");
+}
+
+function categoryAnswer(question, catalog, english, category) {
+  const allProducts = catalog.filter((product) => product.category === category);
+  let products = isAvailableProductsQuestion(question)
+    ? allProducts.filter((product) => product.available === true || product.quantity > 0)
+    : allProducts;
+  if (!products.length) {
+    if (!allProducts.length) return null;
+    return { type: "answer", text: english
+      ? "I can’t confirm any currently available items in this category from live stock data. Ask about a product name and I’ll check its status."
+      : "لا أستطيع تأكيد توفر منتجات من هذه الفئة حاليًا حسب بيانات المخزون المباشرة. اكتب اسم منتج معين لأتحقق من حالته." };
+  }
+
+  const labels = english
+    ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging" }
+    : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف" };
+  const priceSort = getPriceSort(question);
+  if (priceSort) {
+    products = [...products].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price);
+    selectedProductId = products[0].id;
+    const label = priceSort === "asc"
+      ? (english ? "Lowest-priced in this category:" : "الأقل سعرًا في هذه الفئة:")
+      : (english ? "Highest-priced in this category:" : "الأعلى سعرًا في هذه الفئة:");
+    return { type: "answer", text: `${label}\n${productSummary(products[0], english)}` };
+  }
+
+  selectedProductId = null;
+  return { type: "answer", text: productListReply(products, english, `${labels[category]} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
+}
+
 function getInquiryProductName(question) {
   let name = String(question || "").trim();
-  name = name.replace(/^(?:(?:do you have|do you sell|is there|can i get|i need|i want|looking for|find me)\s+)/i, "");
+  name = name.replace(/^(?:(?:do you have|do you sell|is there|can i get|can i buy|i need|i want|looking for|find me)\s+)/i, "");
   name = name.replace(/^(?:a|an|the)\s+/i, "");
-  name = name.replace(/^(?:(?:هل\s*)?(?:عندكم|يتوفر|متوفر|موجود|يوجد|فيه|ممكن\s+توفروا|اريد|عايز|عاوزه|عاوز|محتاج|محتاجه|ابغى)\s*)/i, "");
+  name = name.replace(/^(?:(?:هل\s*)?(?:عندكم|لديكم|يتوفر|متوفر|موجود|يوجد|فيه|ممكن\s+توفروا|اريد|عايز|عاوزه|عاوز|محتاج|محتاجه|ابغى)\s*)/i, "");
   name = name.replace(/[؟?!.,،]+$/g, "").trim();
   return name || String(question || "").trim();
+}
+
+function isExplicitProductRequest(question) {
+  return /^(?:(?:do you have|do you sell|is there|can i get|can i buy|i need|i want|looking for|find me)\b|(?:هل\s*)?(?:عندكم|لديكم|يتوفر|موجود|يوجد|فيه|ممكن\s+توفروا|اريد|عايز|عاوزه|عاوز|محتاج|محتاجه|ابغى)\b)/i.test(normalizeText(question));
 }
 
 function isAffirmative(text) {
@@ -549,6 +635,14 @@ function specsText(product) {
   return [...new Set(details)].join(" · ");
 }
 
+function productMaterialDetails(product) {
+  const matches = Object.entries(product.specs)
+    .filter(([key]) => /(material|food safe|food grade|خامة|خامه|ماده|ملامسة الطعام|امن للاكل|امن غذائ)/i.test(normalizeText(key)))
+    .map(([, value]) => value)
+    .filter((value) => typeof value === "string" || typeof value === "number");
+  return [...new Set(matches.map(String).filter(Boolean))].join(" · ");
+}
+
 function productSummary(product, english = false) {
   const details = specsText(product);
   const lines = [
@@ -562,29 +656,39 @@ function productSummary(product, english = false) {
 function deliveryReply(question, english = false) {
   const normalized = normalizeText(question);
   const governorate = findGovernorate(normalized);
+  if (/(خارج مصر|برا مصر|السعوديه|الرياض|جده|الامارات|دبي|الكويت|قطر|البحرين|عمان|international|outside egypt|abroad|saudi|riyadh|uae|dubai|kuwait|qatar|bahrain|oman)/i.test(normalized)) {
+    return english
+      ? `I can’t confirm international delivery availability or fees. Please contact Zmzm at ${CONTACT_NUMBER}.`
+      : `لا أستطيع تأكيد توفر الشحن الدولي أو تكلفته. تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR} للتأكد.`;
+  }
   if (governorate) {
     const fee = getShippingFee(1, governorate.name);
     return english
-      ? `Delivery usually takes 2–5 days. For ${governorate.englishName}, shipping is ${formatMoney(fee, true)} on orders below 500 EGP and free from 500 EGP.`
-      : `مدة التوصيل عادةً من يومين إلى خمسة أيام. الشحن إلى ${governorate.name} بقيمة ${formatMoney(fee)} للطلبات الأقل من ٥٠٠ جنيه، ومجاني للطلبات من ٥٠٠ جنيه فأكثر.`;
+      ? `Delivery usually takes 2–5 days. For ${governorate.englishName}, shipping is ${formatMoney(fee, true)} on orders below ${formatMoney(FREE_SHIPPING_THRESHOLD, true)} and free from ${formatMoney(FREE_SHIPPING_THRESHOLD, true)}.`
+      : `مدة التوصيل عادةً من يومين إلى خمسة أيام. الشحن إلى ${governorate.name} بقيمة ${formatMoney(fee)} للطلبات الأقل من ${formatMoney(FREE_SHIPPING_THRESHOLD)} جنيه، ومجاني للطلبات من ${formatMoney(FREE_SHIPPING_THRESHOLD)} جنيه فأكثر.`;
   }
 
   const fees = [
     `السويس ${formatMoney(getShippingFee(1, "السويس"))}`,
-    `القاهرة والجيزة والإسماعيلية وبورسعيد ${formatMoney(65)}`,
-    `باقي المحافظات ${formatMoney(85)}`,
+    `القاهرة والجيزة والإسماعيلية وبورسعيد ${formatMoney(getShippingFee(1, "القاهرة"))}`,
+    `باقي المحافظات ${formatMoney(getShippingFee(1, "سوهاج"))}`,
   ].join("، ");
   return english
-    ? `Delivery usually takes 2–5 days. Shipping is free from 500 EGP. Below that: Suez 40 EGP; Cairo, Giza, Ismailia, and Port Said 65 EGP; other governorates 85 EGP. Which governorate are you in?`
+    ? `Delivery usually takes 2–5 days. Shipping is free from ${formatMoney(FREE_SHIPPING_THRESHOLD, true)}. Below that: Suez 40 EGP; Cairo, Giza, Ismailia, and Port Said 65 EGP; other governorates 85 EGP. Which governorate are you in?`
     : `مدة التوصيل ${DELIVERY_TIME_NOTE.replace("مدة التوصيل ", "").replace(/[.]$/, "").replace(/\d/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit])}. الشحن مجاني للطلبات من ٥٠٠ جنيه فأكثر. وللطلبات الأقل: ${fees}. ما المحافظة التي تريد التوصيل إليها؟`;
 }
 
 function isDeliveryQuestion(question) {
-  return /(توصيل|الشحن|شحن|يوصل|التوصيل|محافظه|محافظة|delivery|shipping|deliver)/i.test(question);
+  return /(توصيل|الشحن|شحن|يوصل|توصل|التوصيل|محافظه|محافظة|delivery|shipping|deliver|ship\b)/i.test(question);
 }
 
 function isProductListQuestion(question) {
-  return /(قائمة المنتجات|اعرض المنتجات|عرض المنتجات|وريني المنتجات|كل المنتجات|منتجاتكم|البضاعة|الاصناف|قائمة الاسعار|اسعار المنتجات|list (your )?(products|items)|show (me )?(your )?(products|catalog|items)|what products|what do you have|product catalog|catalog)/i.test(normalizeText(question));
+  if (isSizeCatalogQuestion(question)) return false;
+  return /(قائمة المنتجات|اعرض المنتجات|عرض المنتجات|وريني المنتجات|كل المنتجات|منتجاتكم|منتجات زمزم|المنتجات المتاحه|المتاح عندكم|البضاعه|الاصناف|قائمة الاسعار|اسعار المنتجات|ايه عندكم|ماذا لديكم|انواع المنتجات|ما المنتجات|ايه المنتجات|list (your )?(products|items)|show (me )?(your )?(products|catalog|items)|what products|what do you have|product catalog|catalog|available products|in stock products|show me everything)/i.test(normalizeText(question));
+}
+
+function isAvailableProductsQuestion(question) {
+  return /(المنتجات المتاحه|المتاح عندكم|ايه المتوفر|المتوفر حاليا|متوفره|متوفر|متاحه|متاح|in stock|available products|currently available|what do you have available|available)/i.test(normalizeText(question));
 }
 
 function answerStaticQuestion(question) {
@@ -598,6 +702,21 @@ function answerStaticQuestion(question) {
     return english
       ? `You can reach Zmzm at ${CONTACT_NUMBER}.`
       : `يمكنك التواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR}.`;
+  }
+  if (/(موقع|عنوان|مكانكم|مكان المتجر|فين المحل|فرع|فروع|محل|where are you|store location|address|shop|branch)/i.test(text)) {
+    return english
+      ? `Zmzm is listed in Suez, Egypt, but I don’t have a detailed street address. Please contact us at ${CONTACT_NUMBER}.`
+      : `الموقع يذكر أن زمزم في السويس، مصر، لكن لا يتوفر لدي عنوان تفصيلي. تواصل معنا على الرقم ${CONTACT_NUMBER_AR} لمعرفة العنوان.`;
+  }
+  if (/(تتبع|اتابع|حاله طلبي|حالة طلبي|طلبي فين|order status|track my order|where is my order)/i.test(text)) {
+    return english
+      ? `I can’t access individual order records in this chat. Please contact Zmzm at ${CONTACT_NUMBER}.`
+      : `لا أستطيع الاطلاع على بيانات الطلبات الفردية من خلال هذه المحادثة. لمتابعة طلبك، تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR}.`;
+  }
+  if (isMaterialQuestion(text) && !hasProductCue(text)) {
+    return english
+      ? "Zmzm’s site says it selects sturdy, food-safe materials. I can’t verify a specific material or certification for each item from the product data, so tell me the product name or contact us to confirm."
+      : "يذكر موقع زمزم اختيار خامات قوية وآمنة غذائيًا، لكن لا أستطيع تأكيد خامة أو شهادة سلامة لكل منتج من بياناته الحالية. اكتب اسم المنتج لأراجع مواصفاته أو تواصل معنا للتأكيد.";
   }
   if (/(اطلب|الطلب|اطلبه|اشتري|شراء|السله|سله|checkout|how do i order|how to order|place an order)/i.test(text)) {
     return english
@@ -614,10 +733,20 @@ function answerStaticQuestion(question) {
       ? `For payment options, please contact Zmzm at ${CONTACT_NUMBER}. Never send payment card details in this chat.`
       : `لمعرفة طرق الدفع المتاحة، تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR}. لا ترسل بيانات بطاقتك في المحادثة.`;
   }
+  if (/(افضل|الأفضل|احسن|أحسن|انصح|ترشح|recommend|best|popular|most popular|best seller)/i.test(text)) {
+    return english
+      ? "I can compare listed products by size, price, and confirmed stock, but I don’t have verified customer ratings or a best-seller ranking. Tell me what size or use you need and I’ll narrow down the catalog."
+      : "أقدر أقارن المنتجات المسجلة حسب المقاس والسعر والتوفر المؤكد، لكن لا تتوفر لدي تقييمات عملاء موثقة أو ترتيب للأكثر مبيعًا. أخبرني بالمقاس أو الاستخدام المطلوب لأضيّق لك الاختيارات.";
+  }
   if (/(مرحبا|اهلا|السلام عليكم|صباح الخير|مساء الخير|hello|hi|hey)/i.test(text) && text.length < 36) {
     return english
       ? "Hello! I can help with products, sizes, prices, stock, delivery, and placing an order."
       : "أهلًا بك! أقدر أساعدك في المنتجات والمقاسات والأسعار والتوفر والتوصيل وطريقة الطلب.";
+  }
+  if (/(مين انت|من انت|مساعد زمزم|what can you do|who are you|what do you help with)/i.test(text)) {
+    return english
+      ? "I’m Zmzm’s store assistant. I can check listed products, prices, sizes, and stock, explain delivery fees and ordering, and record a product request after your confirmation."
+      : "أنا مساعد زمزم. أتحقق من المنتجات المسجلة وأسعارها ومقاساتها وتوفرها، وأوضح رسوم التوصيل وطريقة الطلب، ويمكنني تسجيل طلب منتج بعد تأكيدك.";
   }
   return null;
 }
@@ -626,16 +755,74 @@ function answerQuestion(question, catalog) {
   const english = isEnglish(question);
   if (isProductListQuestion(question)) {
     if (!catalog.length) return { type: "answer", text: english ? "There are no listed products right now." : "لا توجد منتجات معروضة حاليًا." };
+    selectedProductId = null;
+    let products = catalog;
+    if (isAvailableProductsQuestion(question)) {
+      products = catalog.filter((product) => product.available === true || product.quantity > 0);
+      if (!products.length) {
+        return { type: "answer", text: english
+          ? "I can’t confirm any currently available items from the live stock data. Ask about a product name and I’ll check its status."
+          : "لا أستطيع تأكيد توفر منتجات حاليًا من بيانات المخزون المباشرة. اكتب اسم منتج معين لأتحقق من حالته." };
+      }
+    }
     const heading = english ? "Here are some products from the current catalog:" : "هذه بعض المنتجات الموجودة في الكتالوج الحالي:";
-    return { type: "answer", text: [heading, ...catalog.slice(0, 8).map((product) =>
-      `${product.name} — ${formatMoney(product.price, english)} · ${stockText(product, english)}`
-    )].join("\n") };
+    return { type: "answer", text: productListReply(products, english, heading) };
+  }
+
+  if (isSizeCatalogQuestion(question)) {
+    if (!catalog.length) return { type: "answer", text: english ? "There are no listed products right now." : "لا توجد منتجات معروضة حاليًا." };
+    selectedProductId = null;
+    const heading = english ? "Here are the sizes and specifications listed for our products:" : "هذه المقاسات والمواصفات المسجلة للمنتجات:";
+    const products = isAvailableProductsQuestion(question)
+      ? catalog.filter((product) => product.available === true || product.quantity > 0)
+      : catalog;
+    if (!products.length && isAvailableProductsQuestion(question)) {
+      return { type: "answer", text: english
+        ? "I can’t confirm any currently available sizes from live stock data. Ask about a product name and I’ll check it."
+        : "لا أستطيع تأكيد المقاسات المتاحة حاليًا من بيانات المخزون المباشرة. اكتب اسم منتج معين لأتحقق منه." };
+    }
+    const lines = products.slice(0, 10).map((product) => {
+      const details = specsText(product);
+      return `${product.name}: ${details || (english ? "No size details are listed." : "لا توجد تفاصيل مقاس مسجلة.")}`;
+    });
+    if (products.length > 10) lines.push(english ? "Ask about a category or product name to narrow the list." : "اسأل عن فئة أو اسم منتج لتضييق القائمة.");
+    return { type: "answer", text: [heading, ...lines].join("\n") };
+  }
+
+  const broadCategory = getCategoryBrowseIntent(question);
+  if (broadCategory && isBroadCategoryRequest(question)) {
+    const result = categoryAnswer(question, catalog, english, broadCategory);
+    if (result) return result;
   }
 
   const matches = getReliableProductMatches(question, catalog);
   if (matches.length) {
+    const priceSort = getPriceSort(question);
+    if (priceSort && matches.length > 1) {
+      const ranked = [...matches].sort((left, right) => priceSort === "asc"
+        ? left.product.price - right.product.price
+        : right.product.price - left.product.price);
+      selectedProductId = ranked[0].product.id;
+      const label = priceSort === "asc"
+        ? (english ? "The lowest-priced matching product is:" : "أقل منتج مطابق في السعر هو:")
+        : (english ? "The highest-priced matching product is:" : "أعلى منتج مطابق في السعر هو:");
+      return { type: "answer", text: `${label}\n${productSummary(ranked[0].product, english)}` };
+    }
     if (matches.length === 1 || matches[0].score - matches[1].score >= 4) {
       selectedProductId = matches[0].product.id;
+      if (isMaterialQuestion(question)) {
+        const materialDetails = productMaterialDetails(matches[0].product);
+        return { type: "answer", text: materialDetails
+          ? `${matches[0].product.name}: ${materialDetails}`
+          : (english
+            ? `The catalog doesn’t list the material or food-safety details for ${matches[0].product.name}. Please contact Zmzm at ${CONTACT_NUMBER} to confirm.`
+            : `لا يذكر الكتالوج خامة ${matches[0].product.name} أو مدى ملاءمتها لملامسة الطعام. تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR} للتأكد.`) };
+      }
+      if (isSizeQuestion(question) && !specsText(matches[0].product)) {
+        return { type: "answer", text: english
+          ? `The catalog doesn’t list size details for ${matches[0].product.name}. Please contact Zmzm at ${CONTACT_NUMBER} to confirm.`
+          : `لا توجد تفاصيل مقاس مسجلة لـ ${matches[0].product.name}. تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR} للتأكد.` };
+      }
       return { type: "answer", text: productSummary(matches[0].product, english) };
     }
     selectedProductId = null;
@@ -645,12 +832,63 @@ function answerQuestion(question, catalog) {
     )].join("\n") };
   }
 
-  if (selectedProductId !== null && !hasProductCue(question) && /(السعر|سعر|متاح|مخزون|الكمية|كمية|مقاس|المقاس|price|stock|available|size|quantity)/i.test(normalizeText(question))) {
-    const previousProduct = catalog.find((product) => product.id === selectedProductId);
-    if (previousProduct) return { type: "answer", text: productSummary(previousProduct, english) };
+  const category = getCategoryBrowseIntent(question);
+  if (category) {
+    const allCategoryProducts = catalog.filter((product) => product.category === category);
+    let categoryProducts = allCategoryProducts;
+    if (isAvailableProductsQuestion(question)) {
+      categoryProducts = categoryProducts.filter((product) => product.available === true || product.quantity > 0);
+    }
+    if (isAvailableProductsQuestion(question) && allCategoryProducts.length && !categoryProducts.length) {
+      return { type: "answer", text: english
+        ? `I can’t confirm any currently available items in this category from the live stock data. Ask about a product name and I’ll check its status.`
+        : `لا أستطيع تأكيد توفر منتجات من هذه الفئة حاليًا حسب بيانات المخزون المباشرة. اكتب اسم منتج معين لأتحقق من حالته.` };
+    }
+    if (categoryProducts.length) {
+      selectedProductId = null;
+      const labels = english
+        ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging" }
+        : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف" };
+      const priceSort = getPriceSort(question);
+      const sorted = priceSort
+        ? [...categoryProducts].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price)
+        : categoryProducts;
+      if (priceSort) {
+        selectedProductId = sorted[0].id;
+        const label = priceSort === "asc"
+          ? (english ? "Lowest-priced in this category:" : "الأقل سعرًا في هذه الفئة:")
+          : (english ? "Highest-priced in this category:" : "الأعلى سعرًا في هذه الفئة:");
+        return { type: "answer", text: `${label}\n${productSummary(sorted[0], english)}` };
+      }
+      return { type: "answer", text: productListReply(sorted, english, `${labels[category]} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
+    }
   }
 
-  if (hasProductCue(question) && [...new Set(tokens(question).filter((token) => !STOP_WORDS.has(token) && token.length > 1))].length >= 2) {
+  const priceSort = getPriceSort(question);
+  if (priceSort && catalog.length) {
+    const sorted = [...catalog].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price);
+    selectedProductId = sorted[0].id;
+    return { type: "answer", text: `${english ? "From the listed catalog:" : "من المنتجات المسجلة:"}\n${productSummary(sorted[0], english)}` };
+  }
+
+  if (selectedProductId !== null && !hasProductCue(question) && /(السعر|سعر|متاح|مخزون|الكمية|كمية|مقاس|المقاس|خامة|مصنوع|material|food safe|price|stock|available|size|quantity|specification)/i.test(normalizeText(question))) {
+    const previousProduct = catalog.find((product) => product.id === selectedProductId);
+    if (previousProduct) {
+      if (isMaterialQuestion(question)) {
+        const materialDetails = productMaterialDetails(previousProduct);
+        return { type: "answer", text: materialDetails
+          ? `${previousProduct.name}: ${materialDetails}`
+          : (english
+            ? `The catalog doesn’t list the material or food-safety details for ${previousProduct.name}. Please contact Zmzm at ${CONTACT_NUMBER}.`
+            : `لا يذكر الكتالوج خامة ${previousProduct.name} أو مدى ملاءمتها لملامسة الطعام. تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR} للتأكد.`) };
+      }
+      return { type: "answer", text: productSummary(previousProduct, english) };
+    }
+  }
+
+  const meaningfulTokens = [...new Set(tokens(question).filter((token) => !STOP_WORDS.has(token) && token.length > 1))];
+  if ((hasProductCue(question) && meaningfulTokens.length >= 2)
+    || (isExplicitProductRequest(question) && meaningfulTokens.length >= 1)) {
     return { type: "missing_product", productName: getInquiryProductName(question) };
   }
 
@@ -725,8 +963,8 @@ async function sendMessage(text, visibleText = text) {
         processProductSearchName(result.productName, catalog);
       } else if (result.type === "unclear") {
         appendMessage("assistant", isEnglish(cleanText)
-          ? "I didn’t understand. If you’re looking for a product, click “تبحث عن منتج؟” below and enter its name. I’ll check for a close match and ask you to confirm before recording an inquiry."
-          : "لم أفهم سؤالك. إذا كنت تبحث عن منتج، اضغط «تبحث عن منتج؟» أسفل المحادثة واكتب اسمه. سأبحث عن أقرب منتج وأطلب تأكيدك قبل تسجيل أي استفسار.");
+          ? "I’m Zmzm’s store assistant, so I can help with listed cake boxes, boards, packaging, prices, sizes, stock, delivery, and ordering. If you mean a particular product, click “تبحث عن منتج؟” and enter its name; I’ll check the catalog and ask before recording an inquiry."
+          : "أنا مساعد متجر زمزم، وأساعدك في علب الكيك والقواعد ومستلزمات التغليف المسجلة وأسعارها ومقاساتها وتوفرها والتوصيل والطلب. لو تقصد منتجًا معينًا، اضغط «تبحث عن منتج؟» واكتب اسمه؛ سأراجع الكتالوج وأطلب تأكيدك قبل تسجيل أي استفسار.");
       } else {
         appendMessage("assistant", result.text);
       }

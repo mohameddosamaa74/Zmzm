@@ -1,16 +1,27 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-};
+const allowedOrigins = new Set([
+  "https://zmzm-amber.vercel.app",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(Deno.env.get("CORS_ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]);
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: corsHeaders,
-});
+function createCorsHeaders(origin: string | null) {
+  const headers = new Headers({
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8",
+    "Vary": "Origin",
+  });
+  if (origin && allowedOrigins.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+  }
+  return headers;
+}
 
 const trimmed = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
@@ -40,29 +51,35 @@ async function hashClientIp(ip: string, key: string) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const origin = request.headers.get("origin");
+  const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: createCorsHeaders(origin),
+  });
+  if (origin && !allowedOrigins.has(origin)) return respond({ error: "Origin not allowed" }, 403);
+  if (request.method === "OPTIONS") return new Response(null, { headers: createCorsHeaders(origin) });
+  if (request.method !== "POST") return respond({ error: "Method not allowed" }, 405);
 
   const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > 5_000) return json({ error: "بيانات الاستفسار كبيرة جداً." }, 413);
+  if (contentLength > 5_000) return respond({ error: "بيانات الاستفسار كبيرة جداً." }, 413);
 
   let payload: Record<string, unknown>;
   try {
     const body = await request.text();
-    if (body.length > 5_000) return json({ error: "بيانات الاستفسار كبيرة جداً." }, 413);
+    if (body.length > 5_000) return respond({ error: "بيانات الاستفسار كبيرة جداً." }, 413);
     payload = JSON.parse(body);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("invalid body");
   } catch {
-    return json({ error: "بيانات الاستفسار غير صالحة." }, 400);
+    return respond({ error: "بيانات الاستفسار غير صالحة." }, 400);
   }
 
   // Ignore automated form fills without revealing that the trap was detected.
-  if (trimmed(payload.website)) return json({ received: true }, 202);
+  if (trimmed(payload.website)) return respond({ received: true }, 202);
 
   const productName = trimmed(payload.product_name);
   const description = trimmed(payload.description);
   if (productName.length < 1 || productName.length > 160 || description.length > 1200) {
-    return json({ error: "تحقق من اسم المنتج والتفاصيل ثم حاول مرة أخرى." }, 400);
+    return respond({ error: "تحقق من اسم المنتج والتفاصيل ثم حاول مرة أخرى." }, 400);
   }
 
   // Trust only the client IP headers set by Supabase's edge, never a browser-supplied forwarding header.
@@ -72,7 +89,7 @@ Deno.serve(async (request) => {
   const serviceRoleKey = getSupabaseSecretKey();
   if (!clientIp || !projectUrl || !serviceRoleKey) {
     console.error("create-product-inquiry is missing trusted platform configuration");
-    return json({ error: "خدمة الاستفسارات غير جاهزة حالياً." }, 503);
+    return respond({ error: "خدمة الاستفسارات غير جاهزة حالياً." }, 503);
   }
 
   try {
@@ -87,18 +104,18 @@ Deno.serve(async (request) => {
 
     if (error) {
       if (error.message?.includes("INQUIRY_RATE_LIMITED")) {
-        return json({ error: "تم إرسال استفسارات كثيرة. انتظر قليلاً ثم حاول مرة أخرى." }, 429);
+        return respond({ error: "تم إرسال استفسارات كثيرة. انتظر قليلاً ثم حاول مرة أخرى." }, 429);
       }
       if (error.message?.includes("INQUIRY_INVALID")) {
-        return json({ error: "تحقق من اسم المنتج والتفاصيل ثم حاول مرة أخرى." }, 400);
+        return respond({ error: "تحقق من اسم المنتج والتفاصيل ثم حاول مرة أخرى." }, 400);
       }
       console.error("create-product-inquiry database request failed", error.code || "unknown");
-      return json({ error: "تعذر حفظ الاستفسار حالياً. حاول مرة أخرى بعد قليل." }, 500);
+      return respond({ error: "تعذر حفظ الاستفسار حالياً. حاول مرة أخرى بعد قليل." }, 500);
     }
 
-    return json({ received: true });
+    return respond({ received: true });
   } catch (error) {
     console.error("create-product-inquiry request failed", error instanceof Error ? error.name : "unknown");
-    return json({ error: "تعذر حفظ الاستفسار حالياً. حاول مرة أخرى بعد قليل." }, 500);
+    return respond({ error: "تعذر حفظ الاستفسار حالياً. حاول مرة أخرى بعد قليل." }, 500);
   }
 });

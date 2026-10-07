@@ -48,6 +48,11 @@ function setCheckoutTotalText(id, value) {
 function renderSummary(message = "") {
   const container = document.getElementById("checkoutItems");
   const submitButton = document.querySelector("#checkoutForm button[type='submit']");
+  const cartCount = document.getElementById("cartCount");
+  if (cartCount) {
+    cartCount.textContent = String(cart.reduce((sum, item) => sum + item.quantity, 0));
+  }
+
   const hasUnavailableItems = cart.some(({ product, quantity }) =>
     product.available !== true ||
     !Number.isInteger(product.availableQuantity) ||
@@ -121,6 +126,11 @@ function renderSummary(message = "") {
 
 async function loadCurrentProducts() {
   const storedCart = readStoredCart();
+  const cartCount = document.getElementById("cartCount");
+  if (cartCount) {
+    cartCount.textContent = String(storedCart.reduce((sum, item) => sum + item.quantity, 0));
+  }
+
   if (!storedCart.length) {
     cart = [];
     productsReady = true;

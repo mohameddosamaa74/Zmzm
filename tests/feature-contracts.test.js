@@ -35,6 +35,46 @@ test("checkout refreshes stock and blocks unavailable or over-limit cart items",
   assert.match(checkout, /submitButton\.disabled\s*=.*hasUnavailableItems/s);
 });
 
+test("checkout badge tracks saved cart quantities and assistant recognizes colloquial delivery questions", async () => {
+  const [checkout, assistant] = await Promise.all([
+    read("src/js/checkout.js"),
+    read("src/js/store-assistant.js"),
+  ]);
+  assert.match(checkout, /cartCount\.textContent = String\(storedCart\.reduce/);
+  assert.match(checkout, /cartCount\.textContent = String\(cart\.reduce/);
+  assert.match(assistant, /توصيل\|الشحن\|شحن\|يوصل\|توصل/);
+});
+
+test("store assistant answers from the live catalog and avoids inventing unsupported business facts", async () => {
+  const [assistant, home] = await Promise.all([read("src/js/store-assistant.js"), read("index.html")]);
+  assert.match(assistant, /arabicLetters[\s\S]*latinLetters/);
+  assert.match(assistant, /isSizeCatalogQuestion/);
+  assert.match(assistant, /getCategoryBrowseIntent/);
+  assert.match(assistant, /getPriceSort/);
+  assert.match(assistant, /get_public_product_availability/);
+  assert.match(assistant, /productMaterialDetails/);
+  assert.match(assistant, /doesn’t list the material|لا يذكر الكتالوج خامة/);
+  assert.match(assistant, /FREE_SHIPPING_THRESHOLD/);
+  assert.match(assistant, /isExplicitProductRequest/);
+  assert.match(assistant, /before recording an inquiry|قبل تسجيل أي استفسار/);
+  assert.match(home, /ما المنتجات المتاحة؟/);
+  assert.match(home, /ما أرخص منتج؟/);
+  assert.doesNotMatch(assistant, /openai\.com|api\.openai|fetch\(['"]https?:/i);
+});
+
+test("public edge functions allow only configured storefront origins", async () => {
+  const [createOrder, createInquiry] = await Promise.all([
+    read("supabase/functions/create-order/index.ts"),
+    read("supabase/functions/create-product-inquiry/index.ts"),
+  ]);
+  for (const functionSource of [createOrder, createInquiry]) {
+    assert.match(functionSource, /https:\/\/zmzm-amber\.vercel\.app/);
+    assert.match(functionSource, /CORS_ALLOWED_ORIGINS/);
+    assert.match(functionSource, /origin && !allowedOrigins\.has\(origin\)/);
+    assert.doesNotMatch(functionSource, /"Access-Control-Allow-Origin":\s*"\*"/);
+  }
+});
+
 test("admin includes warehouse and accounts dashboards with monthly summaries", async () => {
   const [html, admin] = await Promise.all([read("admin.html"), read("src/js/admin.js")]);
   for (const id of ["inventory", "inventoryAvailableUnits", "inventoryReservedUnits", "inventoryMonthSummary", "accounts", "accountsIncomeMonth", "accountsExpensesMonth", "accountsNetMonth", "purchaseCost", "productUnitProfitPreview", "productProfitTableBody", "accountsProductProfitTotal"]) {

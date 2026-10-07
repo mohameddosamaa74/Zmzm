@@ -1,11 +1,27 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-};
+const allowedOrigins = new Set([
+  "https://zmzm-amber.vercel.app",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(Deno.env.get("CORS_ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]);
+
+function createCorsHeaders(origin: string | null) {
+  const headers = new Headers({
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8",
+    "Vary": "Origin",
+  });
+  if (origin && allowedOrigins.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+  }
+  return headers;
+}
 
 const governorates = new Set([
   "القاهرة", "الإسكندرية", "بورسعيد", "السويس", "دمياط", "الدقهلية",
@@ -14,11 +30,6 @@ const governorates = new Set([
   "سوهاج", "قنا", "الأقصر", "أسوان", "البحر الأحمر", "الوادي الجديد",
   "مطروح", "شمال سيناء", "جنوب سيناء",
 ]);
-
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: corsHeaders,
-});
 
 const trimmed = (value: unknown) => typeof value === "string" ? value.trim() : "";
 
@@ -53,25 +64,31 @@ async function hashClientIp(ip: string, key: string) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const origin = request.headers.get("origin");
+  const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: createCorsHeaders(origin),
+  });
+  if (origin && !allowedOrigins.has(origin)) return respond({ error: "Origin not allowed" }, 403);
+  if (request.method === "OPTIONS") return new Response(null, { headers: createCorsHeaders(origin) });
+  if (request.method !== "POST") return respond({ error: "Method not allowed" }, 405);
 
   const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > 16_000) return json({ error: "بيانات الطلب كبيرة جداً." }, 413);
+  if (contentLength > 16_000) return respond({ error: "بيانات الطلب كبيرة جداً." }, 413);
 
   let payload: Record<string, unknown>;
   try {
     const body = await request.text();
-    if (body.length > 16_000) return json({ error: "بيانات الطلب كبيرة جداً." }, 413);
+    if (body.length > 16_000) return respond({ error: "بيانات الطلب كبيرة جداً." }, 413);
     payload = JSON.parse(body);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("invalid body");
   } catch {
-    return json({ error: "بيانات الطلب غير صالحة." }, 400);
+    return respond({ error: "بيانات الطلب غير صالحة." }, 400);
   }
 
   // A populated hidden field is treated as a bot and silently ignored.
   if (trimmed(payload.website)) {
-    return json({ ignored: true, order: { items: [], subtotal: 0, shipping: 0, total: 0 } });
+    return respond({ ignored: true, order: { items: [], subtotal: 0, shipping: 0, total: 0 } });
   }
 
   const firstName = trimmed(payload.first_name);
@@ -101,7 +118,7 @@ Deno.serve(async (request) => {
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey) ||
     !Array.isArray(items) || items.length < 1 || items.length > 20
   ) {
-    return json({ error: "تحقق من بيانات الطلب ثم حاول مرة أخرى." }, 400);
+    return respond({ error: "تحقق من بيانات الطلب ثم حاول مرة أخرى." }, 400);
   }
 
   const productIds = new Set<number>();
@@ -112,7 +129,7 @@ Deno.serve(async (request) => {
       !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 99 ||
       productIds.has(item.product_id)
     ) {
-      return json({ error: "قائمة المنتجات غير صالحة." }, 400);
+      return respond({ error: "قائمة المنتجات غير صالحة." }, 400);
     }
     productIds.add(item.product_id);
   }
@@ -125,7 +142,7 @@ Deno.serve(async (request) => {
   const serviceRoleKey = getSupabaseSecretKey();
   if (!clientIp || !projectUrl || !serviceRoleKey) {
     console.error("create-order is missing trusted platform configuration");
-    return json({ error: "خدمة الطلبات غير جاهزة حالياً." }, 503);
+    return respond({ error: "خدمة الطلبات غير جاهزة حالياً." }, 503);
   }
 
   try {
@@ -152,24 +169,24 @@ Deno.serve(async (request) => {
     if (error) {
       const message = error.message || "";
       if (message.includes("ORDER_RATE_LIMITED")) {
-        return json({ error: "تم إرسال طلبات كثيرة من هذا الاتصال. انتظر قليلاً ثم حاول مرة أخرى." }, 429);
+        return respond({ error: "تم إرسال طلبات كثيرة من هذا الاتصال. انتظر قليلاً ثم حاول مرة أخرى." }, 429);
       }
       if (message.includes("ORDER_INVALID")) {
-        return json({ error: "تحقق من بيانات الطلب ثم حاول مرة أخرى." }, 400);
+        return respond({ error: "تحقق من بيانات الطلب ثم حاول مرة أخرى." }, 400);
       }
       if (message.includes("INVENTORY_INSUFFICIENT_AVAILABLE")) {
-        return json({ error: "الكمية المطلوبة تتجاوز المتاح حالياً." }, 409);
+        return respond({ error: "الكمية المطلوبة تتجاوز المتاح حالياً." }, 409);
       }
       if (message.includes("INVENTORY_OPENING_REQUIRED")) {
-        return json({ error: "لم يتم تسجيل مخزون هذا المنتج بعد." }, 409);
+        return respond({ error: "لم يتم تسجيل مخزون هذا المنتج بعد." }, 409);
       }
       console.error("create-order database request failed", error.code || "unknown");
-      return json({ error: "تعذر حفظ الطلب حالياً. حاول مرة أخرى بعد قليل." }, 500);
+      return respond({ error: "تعذر حفظ الطلب حالياً. حاول مرة أخرى بعد قليل." }, 500);
     }
 
-    return json({ order: result });
+    return respond({ order: result });
   } catch (error) {
     console.error("create-order request failed", error instanceof Error ? error.name : "unknown");
-    return json({ error: "تعذر حفظ الطلب حالياً. حاول مرة أخرى بعد قليل." }, 500);
+    return respond({ error: "تعذر حفظ الطلب حالياً. حاول مرة أخرى بعد قليل." }, 500);
   }
 });
