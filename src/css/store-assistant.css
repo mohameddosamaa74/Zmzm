@@ -258,7 +258,8 @@
   background: #f9fbfe;
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  /* 16px prevents iOS Safari from zooming the page when the chat gets focus. */
+  font-size: 16px;
   line-height: 1.5;
 }
 
