@@ -24,15 +24,37 @@ const STOP_WORDS = new Set([
 ]);
 
 const GOVERNORATES = [
-  { name: "السويس", englishName: "Suez", aliases: ["السويس", "سويس", "suez"] },
   { name: "القاهرة", englishName: "Cairo", aliases: ["القاهرة", "القاهره", "cairo"] },
-  { name: "الجيزة", englishName: "Giza", aliases: ["الجيزة", "الجيزه", "giza"] },
-  { name: "الإسماعيلية", englishName: "Ismailia", aliases: ["الإسماعيلية", "الاسماعيلية", "اسماعيلية", "اسماعيليه", "ismailia", "ismailiya"] },
-  { name: "بورسعيد", englishName: "Port Said", aliases: ["بورسعيد", "بور سعيد", "port said", "portsaid"] },
   { name: "الإسكندرية", englishName: "Alexandria", aliases: ["الإسكندرية", "الاسكندرية", "اسكندرية", "اسكندريه", "alexandria", "alex"] },
+  { name: "بورسعيد", englishName: "Port Said", aliases: ["بورسعيد", "بور سعيد", "port said", "portsaid"] },
+  { name: "السويس", englishName: "Suez", aliases: ["السويس", "سويس", "suez"] },
+  { name: "دمياط", englishName: "Damietta", aliases: ["دمياط", "damietta", "damyat"] },
+  { name: "الدقهلية", englishName: "Dakahlia", aliases: ["الدقهلية", "الدقهليه", "dakahlia", "daqahliya"] },
+  { name: "الشرقية", englishName: "Sharqia", aliases: ["الشرقية", "الشرقيه", "sharqia", "sharkia"] },
+  { name: "القليوبية", englishName: "Qalyubia", aliases: ["القليوبية", "القليوبيه", "qalyubia", "qalubia"] },
+  { name: "كفر الشيخ", englishName: "Kafr El Sheikh", aliases: ["كفر الشيخ", "كفرالشيخ", "kafr el sheikh", "kafr el-sheikh"] },
+  { name: "الغربية", englishName: "Gharbia", aliases: ["الغربية", "الغربيه", "gharbia"] },
+  { name: "المنوفية", englishName: "Menoufia", aliases: ["المنوفية", "المنوفيه", "menoufia", "monufia"] },
+  { name: "البحيرة", englishName: "Beheira", aliases: ["البحيرة", "البحيره", "beheira", "behaira"] },
+  { name: "الإسماعيلية", englishName: "Ismailia", aliases: ["الإسماعيلية", "الاسماعيلية", "اسماعيلية", "اسماعيليه", "ismailia", "ismailiya"] },
+  { name: "الجيزة", englishName: "Giza", aliases: ["الجيزة", "الجيزه", "giza"] },
+  { name: "بني سويف", englishName: "Beni Suef", aliases: ["بني سويف", "ben suef", "beni suef", "beni sweif", "beni suweif"] },
+  { name: "الفيوم", englishName: "Fayoum", aliases: ["الفيوم", "fayoum", "faiyum"] },
+  { name: "المنيا", englishName: "Minya", aliases: ["المنيا", "minya", "menia"] },
+  { name: "أسيوط", englishName: "Assiut", aliases: ["أسيوط", "اسيوط", "assiut", "asyut"] },
+  { name: "سوهاج", englishName: "Sohag", aliases: ["سوهاج", "سوهج", "sohag", "suhag", "suhaj"] },
+  { name: "قنا", englishName: "Qena", aliases: ["قنا", "qena", "kina"] },
+  { name: "الأقصر", englishName: "Luxor", aliases: ["الأقصر", "الاقصر", "luxor"] },
+  { name: "أسوان", englishName: "Aswan", aliases: ["أسوان", "اسوان", "aswan"] },
+  { name: "البحر الأحمر", englishName: "Red Sea", aliases: ["البحر الأحمر", "البحر الاحمر", "red sea"] },
+  { name: "الوادي الجديد", englishName: "New Valley", aliases: ["الوادي الجديد", "الوادى الجديد", "new valley", "wadi el gedid", "el wadi el gedid"] },
+  { name: "مطروح", englishName: "Matrouh", aliases: ["مطروح", "matrouh", "marsa matrouh"] },
+  { name: "شمال سيناء", englishName: "North Sinai", aliases: ["شمال سيناء", "شمال سينا", "north sinai"] },
+  { name: "جنوب سيناء", englishName: "South Sinai", aliases: ["جنوب سيناء", "جنوب سينا", "south sinai"] },
 ];
 
 const CONTACT_NUMBER = "+20 102 431 1053";
+const CONTACT_NUMBER_AR = "\u2066+٢٠ ١٠٢ ٤٣١ ١٠٥٣\u2069";
 let isSending = false;
 let cachedCatalog = null;
 let catalogLoadedAt = 0;
@@ -97,6 +119,25 @@ function tokens(value) {
 
 function isEnglish(text) {
   return /[a-z]/i.test(text);
+}
+
+function findGovernorate(text) {
+  const normalized = normalizeText(text);
+  return GOVERNORATES.find((entry) =>
+    entry.aliases.some((alias) => normalized.includes(normalizeText(alias)))
+  ) || null;
+}
+
+function isGovernorateOnlyReply(text) {
+  const normalized = normalizeText(text);
+  const candidates = [
+    normalized,
+    normalized.replace(/^(انا|i am|i m|im|i live|my location is)\s+(في|من|in|from)\s+/, ""),
+    normalized.replace(/^(my\s+)?(محافظه|governorate|province)(\s+(بتاعتي|my))?\s*(هي|is)?\s*/, ""),
+  ];
+  return GOVERNORATES.some((entry) => entry.aliases.some((alias) =>
+    candidates.includes(normalizeText(alias))
+  ));
 }
 
 function appendMessage(role, text, extraClass = "") {
@@ -315,9 +356,7 @@ function productSummary(product, english = false) {
 
 function deliveryReply(question, english = false) {
   const normalized = normalizeText(question);
-  const governorate = GOVERNORATES.find((entry) =>
-    entry.aliases.some((alias) => normalized.includes(normalizeText(alias)))
-  );
+  const governorate = findGovernorate(normalized);
   if (governorate) {
     const fee = getShippingFee(1, governorate.name);
     return english
@@ -332,7 +371,7 @@ function deliveryReply(question, english = false) {
   ].join("، ");
   return english
     ? `Delivery usually takes 2–5 days. Shipping is free from 500 EGP. Below that: Suez 40 EGP; Cairo, Giza, Ismailia, and Port Said 65 EGP; other governorates 85 EGP. Which governorate are you in?`
-    : `مدة التوصيل ${DELIVERY_TIME_NOTE.replace("مدة التوصيل ", "").replace(/[.]$/, "")}. الشحن مجاني للطلبات من ٥٠٠ جنيه فأكثر. وللطلبات الأقل: ${fees}. ما المحافظة التي تريد التوصيل إليها؟`;
+    : `مدة التوصيل ${DELIVERY_TIME_NOTE.replace("مدة التوصيل ", "").replace(/[.]$/, "").replace(/\d/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit])}. الشحن مجاني للطلبات من ٥٠٠ جنيه فأكثر. وللطلبات الأقل: ${fees}. ما المحافظة التي تريد التوصيل إليها؟`;
 }
 
 function isDeliveryQuestion(question) {
@@ -347,11 +386,13 @@ function answerStaticQuestion(question) {
   const english = isEnglish(question);
   const text = normalizeText(question);
 
-  if (isDeliveryQuestion(question)) return deliveryReply(question, english);
+  if (isDeliveryQuestion(question) || isGovernorateOnlyReply(question)) {
+    return deliveryReply(question, english);
+  }
   if (/(رقم|اتواصل|تواصل|اتصل|واتساب|هاتف|phone|contact|whatsapp|call)/i.test(text)) {
     return english
       ? `You can reach Zmzm at ${CONTACT_NUMBER}.`
-      : `يمكنك التواصل مع زمزم على الرقم ${CONTACT_NUMBER}.`;
+      : `يمكنك التواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR}.`;
   }
   if (/(اطلب|الطلب|اطلبه|اشتري|شراء|السله|سله|checkout|how do i order|how to order|place an order)/i.test(text)) {
     return english
@@ -361,12 +402,12 @@ function answerStaticQuestion(question) {
   if (/(استرجاع|استبدال|ارجاع|إرجاع|استرداد|مرتجع|return|refund|exchange|cancel)/i.test(text)) {
     return english
       ? `I don't have confirmed return or refund policy details. Please contact Zmzm at ${CONTACT_NUMBER}.`
-      : `لا تتوفر لدي تفاصيل مؤكدة عن سياسة الاسترجاع أو الاستبدال. تواصل مع زمزم على الرقم ${CONTACT_NUMBER} لمعرفة التفاصيل.`;
+      : `لا تتوفر لدي تفاصيل مؤكدة عن سياسة الاسترجاع أو الاستبدال. تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR} لمعرفة التفاصيل.`;
   }
   if (/(الدفع|ادفع|طرق الدفع|payment|pay|cash|visa)/i.test(text)) {
     return english
       ? `For payment options, please contact Zmzm at ${CONTACT_NUMBER}. Never send payment card details in this chat.`
-      : `لمعرفة طرق الدفع المتاحة، تواصل مع زمزم على الرقم ${CONTACT_NUMBER}. لا ترسل بيانات بطاقتك في المحادثة.`;
+      : `لمعرفة طرق الدفع المتاحة، تواصل مع زمزم على الرقم ${CONTACT_NUMBER_AR}. لا ترسل بيانات بطاقتك في المحادثة.`;
   }
   if (/(مرحبا|اهلا|السلام عليكم|صباح الخير|مساء الخير|hello|hi|hey)/i.test(text) && text.length < 36) {
     return english
@@ -495,8 +536,8 @@ async function sendMessage(text) {
   } catch {
     typingMessage.remove();
     appendMessage("assistant", isEnglish(cleanText)
-      ? "I can’t reach the store information right now. Please try again shortly or contact us at 01024311053."
-      : "تعذر الوصول إلى معلومات المتجر الآن. حاول مرة أخرى بعد قليل أو تواصل معنا على 01024311053.");
+      ? `I can’t reach the store information right now. Please try again shortly or contact us at ${CONTACT_NUMBER}.`
+      : `تعذر الوصول إلى معلومات المتجر الآن. حاول مرة أخرى بعد قليل أو تواصل معنا على الرقم ${CONTACT_NUMBER_AR}.`);
   } finally {
     setSending(false);
     input.focus();
