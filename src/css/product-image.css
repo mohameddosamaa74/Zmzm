@@ -1,8 +1,69 @@
 .product-image,
 .product-image.board,
 .product-image.cupcakes,
-.product-image.packaging {
+.product-image.packaging,
+.product-image.bags,
+.product-image.toppers {
   background: #fff;
+}
+
+.product-art.bag {
+  width: 112px;
+  height: 92px;
+  margin-top: 18px;
+  border: 2px solid #cf6670;
+  border-radius: 3px 3px 10px 10px;
+  background: linear-gradient(135deg, #fff 0%, #fff8f8 100%);
+  box-shadow: 0 10px 16px rgba(120, 49, 57, .12);
+}
+
+.product-art.bag::before {
+  content: "";
+  position: absolute;
+  width: 42px;
+  height: 26px;
+  top: -28px;
+  left: 32px;
+  border: 3px solid #cf6670;
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+}
+
+.product-art.bag::after {
+  content: "♥";
+  position: absolute;
+  inset: 20px 0 auto;
+  color: #cf6670;
+  text-align: center;
+  font: 700 28px/1 sans-serif;
+}
+
+.product-art.topper {
+  width: 120px;
+  height: 132px;
+  background: transparent;
+}
+
+.product-art.topper::before {
+  content: "✦";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #d2a64b;
+  font: 76px/1 sans-serif;
+  text-shadow: 0 4px 8px rgba(132, 97, 31, .16);
+}
+
+.product-art.topper::after {
+  content: "";
+  position: absolute;
+  top: 66px;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 58px;
+  border-radius: 2px;
+  background: #c5a45c;
 }
 
 .product-image img {

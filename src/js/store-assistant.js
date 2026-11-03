@@ -99,6 +99,12 @@ function canonicalToken(token) {
     board: "قاعده",
     base: "قاعده",
     قواعد: "قاعده",
+    bag: "شنطه",
+    bags: "شنطه",
+    tote: "شنطه",
+    totes: "شنطه",
+    topper: "توبر",
+    toppers: "توبر",
     cupcake: "كب",
     cupcakes: "كب",
     دائريه: "دائري",
@@ -252,7 +258,7 @@ function getProductMatches(question, catalog) {
         product.name,
         product.details,
         JSON.stringify(product.specs),
-        ({ boxes: "box cake", boards: "cake board", cupcakes: "cupcake", packaging: "packaging" })[product.category] || "",
+        ({ boxes: "box cake", boards: "cake board", cupcakes: "cupcake", packaging: "packaging", bags: "bag tote", toppers: "cake topper" })[product.category] || "",
       ].join(" ")));
       const matchedTokens = questionTokens.filter((token) =>
         searchableTokens.has(token) || [...searchableTokens].some((candidate) =>
@@ -329,7 +335,7 @@ function getClosestProduct(productName, catalog) {
 }
 
 function hasProductCue(question) {
-  return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|board|box|cake|product|item|cupcake|packaging|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
+  return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|شنطه|شنط|اكياس|توبر|board|box|cake|product|item|cupcake|packaging|bag|tote|topper|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
 }
 
 function isSizeCatalogQuestion(question) {
@@ -341,6 +347,8 @@ function isSizeCatalogQuestion(question) {
 function getCategoryBrowseIntent(question) {
   const text = normalizeText(question);
   if (/(كب كيك|كبكيك|cup\s*cakes?)/i.test(text)) return "cupcakes";
+  if (/(توبرات|توبر|توبيرات|توبير|cake\s*toppers?|toppers?)/i.test(text)) return "toppers";
+  if (/(شنط|شنطة|شنطه|اكياس|bag|bags|totes?)/i.test(text)) return "bags";
   if (/(علب|علبه|بوكس|boxes?|cake box)/i.test(text)) return "boxes";
   if (/(قواعد|قاعده|لوح|boards?|bases?)/i.test(text)) return "boards";
   if (/(تغليف|شرائط|ربطه|packaging|ribbons?)/i.test(text)) return "packaging";
@@ -394,8 +402,8 @@ function categoryAnswer(question, catalog, english, category) {
   }
 
   const labels = english
-    ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging" }
-    : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف" };
+    ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging", bags: "Bags", toppers: "Cake toppers" }
+    : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف", bags: "شنط", toppers: "توبرات الكيك" };
   const priceSort = getPriceSort(question);
   if (priceSort) {
     products = [...products].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price);
@@ -847,8 +855,8 @@ function answerQuestion(question, catalog) {
     if (categoryProducts.length) {
       selectedProductId = null;
       const labels = english
-        ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging" }
-        : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف" };
+        ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging", bags: "Bags", toppers: "Cake toppers" }
+        : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف", bags: "شنط", toppers: "توبرات الكيك" };
       const priceSort = getPriceSort(question);
       const sorted = priceSort
         ? [...categoryProducts].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price)

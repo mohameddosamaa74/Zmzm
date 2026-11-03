@@ -10,6 +10,8 @@ const categoryNames = {
   boxes: "علب الكيك",
   cupcakes: "كب كيك",
   packaging: "تغليف",
+  bags: "شنط",
+  toppers: "توبرات",
 };
 
 const productForm = document.getElementById("productForm");
@@ -218,7 +220,10 @@ function renderStats() {
   document.getElementById("totalProducts").textContent = String(products.length);
   document.getElementById("boardsCount").textContent = String(products.filter((item) => item.category === "boards").length);
   document.getElementById("boxesCount").textContent = String(products.filter((item) => item.category === "boxes").length);
+  document.getElementById("cupcakesCount").textContent = String(products.filter((item) => item.category === "cupcakes").length);
   document.getElementById("packagingCount").textContent = String(products.filter((item) => item.category === "packaging").length);
+  document.getElementById("bagsCount").textContent = String(products.filter((item) => item.category === "bags").length);
+  document.getElementById("toppersCount").textContent = String(products.filter((item) => item.category === "toppers").length);
 }
 
 function getCurrentMonthStart() {
@@ -1500,7 +1505,9 @@ productForm.addEventListener("submit", async (event) => {
     image: currentImageInput.value || null,
     type: category === "boards" ? "goldboard" :
       category === "cupcakes" ? "cup" :
-      category === "packaging" ? "ribbon" : "box",
+      category === "packaging" ? "ribbon" :
+      category === "bags" ? "bag" :
+      category === "toppers" ? "topper" : "box",
   };
   const saveButton = document.getElementById("saveProduct");
   saveButton.disabled = true;

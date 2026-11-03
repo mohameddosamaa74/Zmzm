@@ -39,13 +39,15 @@ const EGYPT_GOVERNORATES = [
 ];
 
 function normalizeProduct(row) {
-  const validCategories = new Set(["boards", "boxes", "cupcakes", "packaging"]);
-  const validTypes = new Set(["goldboard", "silverboard", "box", "cup", "ribbon"]);
+  const validCategories = new Set(["boards", "boxes", "cupcakes", "packaging", "bags", "toppers"]);
+  const validTypes = new Set(["goldboard", "silverboard", "box", "cup", "ribbon", "bag", "topper"]);
   const category = validCategories.has(row.category) ? row.category : "boxes";
   const inferredType =
     category === "boards" ? "goldboard" :
     category === "cupcakes" ? "cup" :
-    category === "packaging" ? "ribbon" : "box";
+    category === "packaging" ? "ribbon" :
+    category === "bags" ? "bag" :
+    category === "toppers" ? "topper" : "box";
   const requestedType = row.type || inferredType;
 
   return {
@@ -244,6 +246,8 @@ const categoryLabel = {
   boxes: "علب الكيك",
   cupcakes: "كب كيك",
   packaging: "تغليف",
+  bags: "شنط",
+  toppers: "توبرات",
 };
 
 const persistCart = () =>
@@ -307,6 +311,8 @@ const categorySearchTerms = {
   boxes: "boxes box علبة علب صندوق صناديق كيك",
   cupcakes: "cupcake cupcakes كب كيك",
   packaging: "packaging تغليف شريط ملصقات",
+  bags: "bag bags tote totes شنطة شنطه شنط أكياس اكياس",
+  toppers: "topper toppers cake topper توبر توبرات توبير توبيرات زينة كيك",
 };
 
 const specLabels = {
