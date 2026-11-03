@@ -459,8 +459,9 @@
           </div>
 
           <section class="panel module-panel analytics-panel">
-            <div class="panel-head"><div><h2>اتجاه الطلبات والمبيعات</h2><p class="module-hint">قيمة المنتجات المسلّمة والطلبات عبر الفترة المحددة، وفق تاريخ إنشاء الطلب.</p></div></div>
-            <div class="analytics-trend" id="analyticsTrend" role="img" aria-label="مخطط الطلبات والمبيعات خلال الفترة"></div>
+            <div class="panel-head"><div><h2>اتجاه المبيعات والطلبات</h2><p class="module-hint">صافي المبيعات والطلبات المسلّمة عبر الفترة المحددة، وفق تاريخ إنشاء الطلب.</p></div></div>
+            <div class="analytics-chart-legend" aria-hidden="true"><span><i class="analytics-chart-line-key"></i>صافي المبيعات</span><span><i class="analytics-chart-bar-key"></i>طلبات مسلّمة</span><small>مرّر المؤشر على الرسم للتفاصيل · المقياس الأيسر للمبيعات والأيمن للطلبات</small></div>
+            <div class="analytics-line-scroll"><div class="analytics-line-chart" id="analyticsTrend" role="img" aria-label="منحنى صافي المبيعات خلال الفترة"></div></div>
             <p class="orders-empty hidden" id="analyticsTrendEmpty">لا توجد بيانات لهذه الفترة.</p>
           </section>
 
@@ -471,6 +472,24 @@
                 <div class="analytics-donut" id="analyticsOrderStatusChart" role="img" aria-label="توزيع الطلبات حسب الحالة"><span id="analyticsOrderStatusTotal">٠<strong>طلب</strong></span></div>
                 <ul class="analytics-legend" id="analyticsOrderStatusLegend"></ul>
               </div>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>مزيج المبيعات حسب الفئة</h2><p class="module-hint">حصة كل فئة من صافي المبيعات الموجبة في الفترة.</p></div></div>
+              <div class="analytics-status-layout">
+                <div class="analytics-donut" id="analyticsCategoryMixChart" role="img" aria-label="توزيع صافي المبيعات حسب الفئة"><span class="analytics-donut-center is-money" id="analyticsCategoryMixTotal">—<strong>ج.م</strong></span></div>
+                <ul class="analytics-legend analytics-mix-legend" id="analyticsCategoryMixLegend"></ul>
+              </div>
+              <p class="orders-empty hidden" id="analyticsCategoryMixEmpty">لا توجد مبيعات فئات لهذه الفترة.</p>
+            </section>
+
+            <section class="panel module-panel analytics-panel analytics-visual-panel">
+              <div class="panel-head"><div><h2>العملاء الجدد والمتكررون</h2><p class="module-hint">مقارنة العملاء الذين اشتروا مرة واحدة بمن عادوا للشراء.</p></div></div>
+              <div class="analytics-status-layout">
+                <div class="analytics-donut" id="analyticsCustomerMixChart" role="img" aria-label="نسبة العملاء الجدد والمتكررين"><span class="analytics-donut-center" id="analyticsCustomerMixTotal">٠<strong>عميل</strong></span></div>
+                <ul class="analytics-legend analytics-mix-legend" id="analyticsCustomerMixLegend"></ul>
+              </div>
+              <p class="orders-empty hidden" id="analyticsCustomerMixEmpty">لا توجد بيانات عملاء لهذه الفترة.</p>
             </section>
 
             <section class="panel module-panel analytics-panel analytics-visual-panel">

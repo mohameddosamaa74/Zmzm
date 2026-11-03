@@ -1805,6 +1805,113 @@ td strong {
   padding: 4px 0 8px;
 }
 
+.analytics-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 6px 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.analytics-chart-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.analytics-chart-line-key {
+  width: 22px;
+  height: 3px;
+  border-radius: 99px;
+  background: #1769d4;
+}
+
+.analytics-chart-bar-key {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #23936b;
+}
+
+.analytics-line-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.analytics-line-chart {
+  width: 100%;
+  min-width: 680px;
+  direction: ltr;
+}
+
+.analytics-line-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.analytics-svg-grid line {
+  stroke: #e8edf4;
+  stroke-width: 1;
+}
+
+.analytics-svg-grid text,
+.analytics-svg-x-label {
+  fill: var(--muted);
+  font-family: Cairo, sans-serif;
+  font-size: 12px;
+}
+
+.analytics-svg-axis {
+  stroke: #b8c8da;
+  stroke-width: 1.2;
+}
+
+.analytics-orders-bar {
+  fill: #23936b;
+  opacity: .32;
+  transition: opacity .18s ease;
+}
+
+.analytics-orders-bar:hover {
+  opacity: .7;
+}
+
+.analytics-line-area {
+  fill: url(#analyticsSalesLineFill);
+}
+
+.analytics-line-path {
+  fill: none;
+  stroke: #1769d4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.analytics-svg-point circle {
+  fill: #fff;
+  stroke: #1769d4;
+  stroke-width: 2.5;
+  cursor: help;
+  vector-effect: non-scaling-stroke;
+  transition: fill .18s ease, r .18s ease;
+}
+
+.analytics-svg-point:hover circle,
+.analytics-svg-point:focus circle {
+  fill: #1769d4;
+  r: 7;
+}
+
 .analytics-donut {
   position: relative;
   display: grid;
@@ -1862,6 +1969,25 @@ td strong {
 .analytics-legend li strong {
   color: var(--navy);
   font-size: 12px;
+}
+
+.analytics-mix-legend {
+  gap: 9px;
+}
+
+.analytics-mix-legend li {
+  font-size: 10px;
+}
+
+.analytics-mix-legend li strong {
+  font-size: 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.analytics-donut-center.is-money {
+  font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .analytics-legend-dot {

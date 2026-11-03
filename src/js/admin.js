@@ -984,24 +984,81 @@ function openInquiryDetails(inquiry) {
   inquiryDetailsDialog.showModal();
 }
 
-function renderAnalyticsTrend(rows) {
+function formatAnalyticsTrendDate(value, period) {
+  const dateValue = String(value || "");
+  const date = new Date(`${/^\d{4}-\d{2}$/.test(dateValue) ? `${dateValue}-01` : dateValue}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return new Intl.DateTimeFormat("ar-EG", period === "365d"
+    ? { month: "short", year: "2-digit" }
+    : { day: "numeric", month: "short" }).format(date);
+}
+
+function formatAnalyticsAxisValue(value) {
+  return `${Number(value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 })}`;
+}
+
+function renderAnalyticsTrend(rows, period = "30d") {
   const container = document.getElementById("analyticsTrend");
-  const values = (rows || []).map((row) => Number(row.net_sales || 0));
-  const maxValue = Math.max(...values, 0);
-  container.innerHTML = (rows || []).map((row) => {
-    const sales = Number(row.net_sales || 0);
-    const height = maxValue > 0 ? Math.max(4, (sales / maxValue) * 100) : 4;
-    const details = `${row.label}: ${formatCount(row.delivered_orders)} طلب مسلّم، ${formatMoney(sales)}`;
-    return `
-      <div class="analytics-trend-item" role="group" title="${escapeHtml(details)}">
-        <div class="analytics-trend-bar-wrap"><div class="analytics-trend-bar" style="height:${height}%"></div></div>
-        <strong>${escapeHtml(formatMoney(sales))}</strong>
-        <small>${escapeHtml(formatCount(row.delivered_orders))} طلب</small>
-        <small>${escapeHtml(row.label)}</small>
-      </div>
-    `;
+  const trendRows = (rows || []).map((row) => ({
+    ...row,
+    sales: Number(row.net_sales || 0),
+    orders: Math.max(0, Number(row.delivered_orders || 0)),
+  })).filter((row) => Number.isFinite(row.sales) && Number.isFinite(row.orders));
+  document.getElementById("analyticsTrendEmpty").classList.toggle("hidden", Boolean(trendRows.length));
+  if (!trendRows.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const width = 960;
+  const height = 310;
+  const plot = { left: 72, right: 62, top: 20, bottom: 62 };
+  const plotWidth = width - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
+  const minValue = Math.min(0, ...trendRows.map((row) => row.sales));
+  const rawMaxValue = Math.max(0, ...trendRows.map((row) => row.sales));
+  const maxValue = rawMaxValue === minValue ? minValue + 1 : rawMaxValue;
+  const valueRange = maxValue - minValue || 1;
+  const maxOrders = Math.max(1, ...trendRows.map((row) => row.orders));
+  const x = (index) => trendRows.length === 1
+    ? plot.left + plotWidth / 2
+    : plot.left + (index / (trendRows.length - 1)) * plotWidth;
+  const y = (value) => plot.top + ((maxValue - value) / valueRange) * plotHeight;
+  const points = trendRows.map((row, index) => ({ x: x(index), y: y(row.sales), row }));
+  const linePath = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const zeroY = y(0);
+  const labelStep = Math.max(1, Math.ceil(trendRows.length / 8));
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const value = maxValue - ((maxValue - minValue) * index / 4);
+    const gridY = y(value);
+    const orderTick = Math.round(maxOrders * (4 - index) / 4);
+    return `<g class="analytics-svg-grid"><line x1="${plot.left}" y1="${gridY.toFixed(1)}" x2="${width - plot.right}" y2="${gridY.toFixed(1)}"></line><text x="${plot.left - 12}" y="${(gridY + 4).toFixed(1)}" text-anchor="end">${escapeHtml(formatAnalyticsAxisValue(value))}</text><text x="${width - plot.right + 12}" y="${(gridY + 4).toFixed(1)}" text-anchor="start">${escapeHtml(formatCount(orderTick))}</text></g>`;
   }).join("");
-  document.getElementById("analyticsTrendEmpty").classList.toggle("hidden", Boolean(rows?.length));
+  const slotWidth = plotWidth / trendRows.length;
+  const barWidth = Math.min(24, Math.max(8, slotWidth * 0.42));
+  const orderBars = points.map((point) => {
+    const barHeight = (point.row.orders / maxOrders) * plotHeight;
+    const details = `${point.row.label}: ${formatCount(point.row.orders)} طلب مسلّم`;
+    return `<rect class="analytics-orders-bar" x="${(point.x - barWidth / 2).toFixed(1)}" y="${(plot.top + plotHeight - barHeight).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="4"><title>${escapeHtml(details)}</title></rect>`;
+  }).join("");
+  const dots = points.map((point, index) => {
+    const details = `${point.row.label}: ${formatCount(point.row.delivered_orders)} طلب مسلّم · صافي المبيعات ${formatMoney(point.row.sales)}`;
+    const label = index % labelStep === 0 || index === points.length - 1
+      ? `<text class="analytics-svg-x-label" x="${point.x.toFixed(1)}" y="${height - 25}" text-anchor="middle">${escapeHtml(formatAnalyticsTrendDate(point.row.label, period))}</text>`
+      : "";
+    return `<g class="analytics-svg-point"><circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5"><title>${escapeHtml(details)}</title></circle>${label}</g>`;
+  }).join("");
+
+  container.innerHTML = `
+    <svg class="analytics-line-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="منحنى صافي المبيعات وأعمدة عدد الطلبات المسلّمة">
+      <defs><linearGradient id="analyticsSalesLineFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#1769d4" stop-opacity=".18"></stop><stop offset="100%" stop-color="#1769d4" stop-opacity="0"></stop></linearGradient></defs>
+      ${grid}
+      ${orderBars}
+      <line class="analytics-svg-axis" x1="${plot.left}" y1="${zeroY.toFixed(1)}" x2="${width - plot.right}" y2="${zeroY.toFixed(1)}"></line>
+      <path class="analytics-line-area" d="${linePath} L${points.at(-1).x.toFixed(1)},${zeroY.toFixed(1)} L${points[0].x.toFixed(1)},${zeroY.toFixed(1)} Z"></path>
+      <path class="analytics-line-path" d="${linePath}"></path>
+      ${dots}
+    </svg>`;
 }
 
 function analyticsPercent(part, total) {
@@ -1027,32 +1084,83 @@ function renderAnalyticsRankList(containerId, rows, { label, value, meta, format
   }).join("");
 }
 
+function renderAnalyticsDonut({ chartId, totalId, legendId, segments, centerValue, centerLabel, ariaLabel, legendValue }) {
+  const chart = document.getElementById(chartId);
+  const total = segments.reduce((sum, segment) => sum + Math.max(0, Number(segment.value || 0)), 0);
+  let cursor = 0;
+  const stops = segments.map((segment) => {
+    const value = Math.max(0, Number(segment.value || 0));
+    const start = total ? (cursor / total) * 100 : 0;
+    cursor += value;
+    const end = total ? (cursor / total) * 100 : 0;
+    return `${segment.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+  });
+  chart.style.background = total ? `conic-gradient(${stops.join(",")})` : "conic-gradient(#e8edf4 0 100%)";
+  chart.setAttribute("aria-label", ariaLabel);
+  document.getElementById(totalId).innerHTML = `${escapeHtml(String(centerValue))}<strong>${escapeHtml(centerLabel)}</strong>`;
+  document.getElementById(legendId).innerHTML = segments.map((segment) => `
+    <li><span class="analytics-legend-dot" style="--legend-color:${segment.color}"></span><span>${escapeHtml(segment.label)}</span><strong>${escapeHtml(legendValue(segment.value, total))}</strong></li>
+  `).join("");
+}
+
 function renderAnalyticsOrderMix(summary) {
   const total = Number(summary.orders_count || 0);
   const segments = [
     { key: "delivered_orders", label: "تم التسليم", color: "#23936b" },
     { key: "open_orders", label: "قيد التنفيذ", color: "#1769d4" },
     { key: "cancelled_orders", label: "ملغي", color: "#e45d64" },
-  ].map((segment) => ({ ...segment, count: Number(summary[segment.key] || 0) }));
-  const known = segments.reduce((sum, segment) => sum + segment.count, 0);
-  if (Math.max(0, total - known) > 0) {
-    segments.push({ label: "حالات أخرى", color: "#a6b3c4", count: total - known });
-  }
-
-  let cursor = 0;
-  const stops = segments.map((segment) => {
-    const start = total ? (cursor / total) * 100 : 0;
-    cursor += segment.count;
-    const end = total ? (cursor / total) * 100 : 0;
-    return `${segment.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+  ].map((segment) => ({ ...segment, value: Number(summary[segment.key] || 0) }));
+  const known = segments.reduce((sum, segment) => sum + segment.value, 0);
+  if (Math.max(0, total - known) > 0) segments.push({ label: "حالات أخرى", color: "#a6b3c4", value: total - known });
+  renderAnalyticsDonut({
+    chartId: "analyticsOrderStatusChart",
+    totalId: "analyticsOrderStatusTotal",
+    legendId: "analyticsOrderStatusLegend",
+    segments,
+    centerValue: formatCount(total),
+    centerLabel: "طلب",
+    ariaLabel: `توزيع ${formatCount(total)} طلب حسب الحالة`,
+    legendValue: (value) => formatCount(value),
   });
-  const chart = document.getElementById("analyticsOrderStatusChart");
-  chart.style.background = total ? `conic-gradient(${stops.join(",")})` : "conic-gradient(#e8edf4 0 100%)";
-  chart.setAttribute("aria-label", `توزيع ${formatCount(total)} طلب حسب الحالة`);
-  document.getElementById("analyticsOrderStatusTotal").innerHTML = `${formatCount(total)}<strong>طلب</strong>`;
-  document.getElementById("analyticsOrderStatusLegend").innerHTML = segments.map((segment) => `
-    <li><span class="analytics-legend-dot" style="--legend-color:${segment.color}"></span><span>${escapeHtml(segment.label)}</span><strong>${formatCount(segment.count)}</strong></li>
-  `).join("");
+}
+
+function renderAnalyticsMixCharts(data) {
+  const categoryRows = (data.categories || []).map((row) => ({
+    label: categoryNames[row.category] || row.category || "أخرى",
+    value: Math.max(0, Number(row.net_sales || 0)),
+  })).filter((row) => row.value > 0);
+  const colors = ["#1769d4", "#23936b", "#e69a2d", "#7451c8", "#e45d64", "#36a3a8"];
+  const categorySegments = categoryRows.map((row, index) => ({ ...row, color: colors[index % colors.length] }));
+  const categoryTotal = categorySegments.reduce((sum, row) => sum + row.value, 0);
+  renderAnalyticsDonut({
+    chartId: "analyticsCategoryMixChart",
+    totalId: "analyticsCategoryMixTotal",
+    legendId: "analyticsCategoryMixLegend",
+    segments: categorySegments,
+    centerValue: categoryTotal ? formatCount(categoryTotal) : "—",
+    centerLabel: "ج.م",
+    ariaLabel: "توزيع صافي المبيعات الموجبة حسب فئات المنتجات",
+    legendValue: (value, total) => `${formatMoney(value)} · ${analyticsPercent(value, total)}`,
+  });
+  document.getElementById("analyticsCategoryMixEmpty").classList.toggle("hidden", Boolean(categorySegments.length));
+
+  const customers = Math.max(0, Number(data.summary?.customers_count || 0));
+  const repeatCustomers = Math.min(customers, Math.max(0, Number(data.summary?.repeat_customers || 0)));
+  const customerSegments = customers ? [
+    { label: "اشتروا مرة واحدة", value: customers - repeatCustomers, color: "#8aa2bd" },
+    { label: "عملاء متكررون", value: repeatCustomers, color: "#1769d4" },
+  ].filter((segment) => segment.value > 0) : [];
+  renderAnalyticsDonut({
+    chartId: "analyticsCustomerMixChart",
+    totalId: "analyticsCustomerMixTotal",
+    legendId: "analyticsCustomerMixLegend",
+    segments: customerSegments,
+    centerValue: formatCount(customers),
+    centerLabel: "عميل",
+    ariaLabel: "توزيع العملاء بين مشترٍ مرة واحدة وعملاء متكررين",
+    legendValue: (value, total) => `${formatCount(value)} · ${analyticsPercent(value, total)}`,
+  });
+  document.getElementById("analyticsCustomerMixEmpty").classList.toggle("hidden", Boolean(customerSegments.length));
 }
 
 function exportBusinessAnalytics() {
@@ -1162,8 +1270,9 @@ function renderBusinessAnalytics(data) {
   document.getElementById("analyticsReturnRate").textContent = analyticsPercent(summary.returned_orders, summary.delivered_orders);
   document.getElementById("analyticsRepeatRate").textContent = analyticsPercent(summary.repeat_customers, summary.customers_count);
 
-  renderAnalyticsTrend(data.trend || []);
+  renderAnalyticsTrend(data.trend || [], data.period || document.getElementById("analyticsRange").value);
   renderAnalyticsOrderMix(summary);
+  renderAnalyticsMixCharts(data);
   document.getElementById("analyticsAccountsNet").textContent = formatMoney(accounts.net);
   const accountRows = [
     { label: "الإيرادات", value: accounts.income, tone: "green" },
