@@ -84,6 +84,14 @@
   object-position: center;
 }
 
+.product-image.toppers .product-stock-overlay {
+  top: 10px;
+  right: 10px;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+
 .product-stock-overlay {
   position: absolute;
   z-index: 3;
