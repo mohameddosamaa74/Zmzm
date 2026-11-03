@@ -1972,6 +1972,7 @@ td strong {
 }
 
 .analytics-mix-legend {
+  flex: 1 1 160px;
   gap: 9px;
 }
 
