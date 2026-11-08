@@ -79,7 +79,7 @@
 
 .search-result-image.is-availability-unknown img,
 .search-result-image.is-availability-unknown .product-art {
-  filter: saturate(.82) brightness(.94);
+  filter: saturate(.82);
   opacity: .76;
 }
 
