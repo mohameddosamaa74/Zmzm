@@ -77,6 +77,12 @@
   background: transparent !important;
 }
 
+.search-result-image.is-availability-unknown img,
+.search-result-image.is-availability-unknown .product-art {
+  filter: saturate(.82) brightness(.94);
+  opacity: .76;
+}
+
 .search-result-copy {
   display: grid;
   min-width: 0;
@@ -101,6 +107,11 @@
 
 .search-result-copy .search-result-details {
   color: var(--blue);
+}
+
+.search-result-copy .search-result-stock-status {
+  color: #647386;
+  font-weight: 700;
 }
 
 .search-result-price {

@@ -100,6 +100,12 @@ function remainingProductQuantity(product) {
   return Math.max(0, Math.min(product.availableQuantity, CART_ITEM_LIMIT) - productCartQuantity(product.id));
 }
 
+function productNeedsStocktake(product) {
+  return !productAvailabilityError &&
+    product.available === null &&
+    product.availableQuantity === null;
+}
+
 function productAvailabilityMessage(product) {
   if (productAvailabilityError) return "تعذر التحقق من المخزون";
   if (product.available === false) return "نفد المخزون — سيتوفر قريباً";
@@ -405,11 +411,12 @@ function renderSearchResults() {
 
         return `
           <button class="search-result" type="button" role="option" aria-selected="false" data-id="${product.id}">
-            <span class="search-result-image">${productArt(product)}</span>
+            <span class="search-result-image ${productNeedsStocktake(product) ? "is-availability-unknown" : ""}">${productArt(product)}</span>
             <span class="search-result-copy">
               <strong>${escapeHtml(product.name)}</strong>
               <small>${escapeHtml(product.meta || categoryLabel[product.category] || "منتج")}</small>
               ${detailPreview ? `<small class="search-result-details">${detailPreview}</small>` : ""}
+              ${productNeedsStocktake(product) ? '<small class="search-result-stock-status">التوفر غير محدد حالياً</small>' : ""}
             </span>
             <strong class="search-result-price">${money(product.price)}</strong>
           </button>
@@ -462,11 +469,14 @@ function renderProducts() {
     ? visible
         .map((product) => {
           const atCartLimit = productAtCartLimit(product);
+          const needsStocktake = productNeedsStocktake(product);
           const dimClass = product.available === false
             ? "is-out-of-stock"
             : atCartLimit
               ? "is-cart-limit-reached"
-              : "";
+              : needsStocktake
+                ? "is-availability-unknown"
+                : "";
           const canAddProduct = product.available === true &&
             Number.isInteger(product.availableQuantity) && !atCartLimit;
           return `
@@ -1116,7 +1126,7 @@ function openProductDetailsModal(productId) {
 
   $("#modalContent").innerHTML = `
     <article class="product-detail-view">
-      <div class="product-detail-image product-image ${escapeHtml(product.category)} ${product.available === false ? "is-out-of-stock" : ""}">
+      <div class="product-detail-image product-image ${escapeHtml(product.category)} ${product.available === false ? "is-out-of-stock" : productNeedsStocktake(product) ? "is-availability-unknown" : ""}">
         ${productArt(product)}
         ${productAvailabilityOverlay(product)}
       </div>

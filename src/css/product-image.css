@@ -149,6 +149,12 @@
   opacity: .32;
 }
 
+.product-image.is-availability-unknown img,
+.product-image.is-availability-unknown .product-art {
+  filter: saturate(.82) brightness(.94);
+  opacity: .76;
+}
+
 .add-to-cart:disabled {
   background: #f1f3f6;
   color: #7b8794;
