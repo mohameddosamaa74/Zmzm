@@ -367,6 +367,10 @@ button { cursor: pointer; }
   margin-bottom: 24px;
 }
 
+.category-stats-grid {
+  display: contents;
+}
+
 .stat-card {
   background: var(--white);
   border: 1px solid var(--line);
@@ -749,6 +753,72 @@ button { cursor: pointer; }
 .product-dialog-content {
   overflow-y: auto;
   padding: 20px 22px 22px;
+}
+
+.category-manager-dialog {
+  width: min(680px, calc(100% - 32px));
+}
+
+.category-manager-content {
+  display: grid;
+  gap: 20px;
+}
+
+.category-manager-list {
+  display: grid;
+  gap: 10px;
+}
+
+.category-manager-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.category-manager-row .btn,
+.category-manager-add-row .btn {
+  min-height: 45px;
+  white-space: nowrap;
+}
+
+.category-manager-add {
+  display: grid;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.category-manager-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.category-manager-note,
+.category-manager-setup,
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.category-manager-setup {
+  padding: 12px 14px;
+  border: 1px solid #f3d59e;
+  border-radius: 10px;
+  background: #fff8e9;
+  color: #79581d;
+}
+
+.category-manager-setup b {
+  display: inline-block;
+  direction: ltr;
 }
 
 .order-details-content {
@@ -1558,6 +1628,11 @@ td strong {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+  }
+
+  .category-manager-row,
+  .category-manager-add-row {
+    grid-template-columns: 1fr;
   }
 
   .accounts-stats-grid {

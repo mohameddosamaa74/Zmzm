@@ -57,6 +57,23 @@ const GOVERNORATES = [
 
 const CONTACT_NUMBER = "+20 102 431 1053";
 const CONTACT_NUMBER_AR = "\u2066+٢٠ ١٠٢ ٤٣١ ١٠٥٣\u2069";
+const DEFAULT_CATEGORY_LABELS = {
+  boards: "قواعد كيك",
+  boxes: "علب الكيك",
+  cupcakes: "كب كيك",
+  packaging: "تغليف",
+  bags: "شنط",
+  toppers: "توبرات",
+};
+const ENGLISH_CATEGORY_LABELS = {
+  boards: "Cake boards",
+  boxes: "Cake boxes",
+  cupcakes: "Cupcake packaging",
+  packaging: "Packaging",
+  bags: "Bags",
+  toppers: "Cake toppers",
+};
+let categoryLabels = { ...DEFAULT_CATEGORY_LABELS };
 let isSending = false;
 let cachedCatalog = null;
 let catalogLoadedAt = 0;
@@ -206,6 +223,7 @@ function toProduct(row, availability = null) {
     id: Number(row.id),
     name: String(row.name || "").trim(),
     category: String(row.category || ""),
+    categoryName: categoryLabels[row.category] || "",
     price: Number(row.price || 0),
     details: String(row.meta || "").trim(),
     specs: row.specs && typeof row.specs === "object" ? row.specs : {},
@@ -232,6 +250,18 @@ async function loadCatalog() {
   }
   if (productQuery.error) throw new Error("catalog_unavailable");
 
+  const { data: categoryRows, error: categoryError } = await supabaseClient.from("product_categories")
+    .select("id,name")
+    .order("sort_order", { ascending: true });
+  categoryLabels = { ...DEFAULT_CATEGORY_LABELS };
+  if (!categoryError && categoryRows?.length) {
+    for (const category of categoryRows) {
+      if (category.id && String(category.name || "").trim()) {
+        categoryLabels[String(category.id)] = String(category.name).trim();
+      }
+    }
+  }
+
   const { data: availabilityRows, error: availabilityError } = await supabaseClient
     .rpc("get_public_product_availability");
   const availability = new Map();
@@ -257,6 +287,7 @@ function getProductMatches(question, catalog) {
       const searchableTokens = new Set(tokens([
         product.name,
         product.details,
+        product.categoryName,
         JSON.stringify(product.specs),
         ({ boxes: "box cake", boards: "cake board", cupcakes: "cupcake", packaging: "packaging", bags: "bag tote", toppers: "cake topper" })[product.category] || "",
       ].join(" ")));
@@ -335,7 +366,12 @@ function getClosestProduct(productName, catalog) {
 }
 
 function hasProductCue(question) {
-  return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|شنطه|شنط|اكياس|توبر|board|box|cake|product|item|cupcake|packaging|bag|tote|topper|size|مقاس|مقاسات|تغليف|كرتون)/i.test(normalizeText(question));
+  const text = normalizeText(question);
+  return /(منتج|المنتج|صنف|سلعه|علب|علبه|بوكس|كيك|قاعده|قواعد|لوح|شنطه|شنط|اكياس|توبر|board|box|cake|product|item|cupcake|packaging|bag|tote|topper|size|مقاس|مقاسات|تغليف|كرتون)/i.test(text) ||
+    Object.values(categoryLabels).some((name) => {
+      const normalizedName = normalizeText(name);
+      return normalizedName.length > 1 && text.includes(normalizedName);
+    });
 }
 
 function isSizeCatalogQuestion(question) {
@@ -346,6 +382,10 @@ function isSizeCatalogQuestion(question) {
 
 function getCategoryBrowseIntent(question) {
   const text = normalizeText(question);
+  for (const [categoryId, categoryName] of Object.entries(categoryLabels)) {
+    const normalizedName = normalizeText(categoryName);
+    if (normalizedName.length > 1 && text.includes(normalizedName)) return categoryId;
+  }
   if (/(كب كيك|كبكيك|cup\s*cakes?)/i.test(text)) return "cupcakes";
   if (/(توبرات|توبر|توبيرات|توبير|cake\s*toppers?|toppers?)/i.test(text)) return "toppers";
   if (/(شنط|شنطة|شنطه|اكياس|bag|bags|totes?)/i.test(text)) return "bags";
@@ -401,9 +441,9 @@ function categoryAnswer(question, catalog, english, category) {
       : "لا أستطيع تأكيد توفر منتجات من هذه الفئة حاليًا حسب بيانات المخزون المباشرة. اكتب اسم منتج معين لأتحقق من حالته." };
   }
 
-  const labels = english
-    ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging", bags: "Bags", toppers: "Cake toppers" }
-    : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف", bags: "شنط", toppers: "توبرات الكيك" };
+  const categoryLabel = english
+    ? ENGLISH_CATEGORY_LABELS[category] || categoryLabels[category] || category
+    : categoryLabels[category] || category;
   const priceSort = getPriceSort(question);
   if (priceSort) {
     products = [...products].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price);
@@ -415,7 +455,7 @@ function categoryAnswer(question, catalog, english, category) {
   }
 
   selectedProductId = null;
-  return { type: "answer", text: productListReply(products, english, `${labels[category]} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
+  return { type: "answer", text: productListReply(products, english, `${categoryLabel} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
 }
 
 function getInquiryProductName(question) {
@@ -854,9 +894,9 @@ function answerQuestion(question, catalog) {
     }
     if (categoryProducts.length) {
       selectedProductId = null;
-      const labels = english
-        ? { boxes: "Cake boxes", boards: "Cake boards", cupcakes: "Cupcake packaging", packaging: "Packaging", bags: "Bags", toppers: "Cake toppers" }
-        : { boxes: "علب الكيك", boards: "قواعد الكيك", cupcakes: "تغليف الكب كيك", packaging: "مستلزمات التغليف", bags: "شنط", toppers: "توبرات الكيك" };
+      const categoryLabel = english
+        ? ENGLISH_CATEGORY_LABELS[category] || categoryLabels[category] || category
+        : categoryLabels[category] || category;
       const priceSort = getPriceSort(question);
       const sorted = priceSort
         ? [...categoryProducts].sort((left, right) => priceSort === "asc" ? left.price - right.price : right.price - left.price)
@@ -868,7 +908,7 @@ function answerQuestion(question, catalog) {
           : (english ? "Highest-priced in this category:" : "الأعلى سعرًا في هذه الفئة:");
         return { type: "answer", text: `${label}\n${productSummary(sorted[0], english)}` };
       }
-      return { type: "answer", text: productListReply(sorted, english, `${labels[category]} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
+      return { type: "answer", text: productListReply(sorted, english, `${categoryLabel} — ${english ? "current catalog" : "الموجودة حاليًا"}:`) };
     }
   }
 
@@ -971,8 +1011,8 @@ async function sendMessage(text, visibleText = text) {
         processProductSearchName(result.productName, catalog);
       } else if (result.type === "unclear") {
         appendMessage("assistant", isEnglish(cleanText)
-          ? "I’m Zmzm’s store assistant, so I can help with listed cake boxes, boards, packaging, prices, sizes, stock, delivery, and ordering. If you mean a particular product, click “تبحث عن منتج؟” and enter its name; I’ll check the catalog and ask before recording an inquiry."
-          : "أنا مساعد متجر زمزم، وأساعدك في علب الكيك والقواعد ومستلزمات التغليف المسجلة وأسعارها ومقاساتها وتوفرها والتوصيل والطلب. لو تقصد منتجًا معينًا، اضغط «تبحث عن منتج؟» واكتب اسمه؛ سأراجع الكتالوج وأطلب تأكيدك قبل تسجيل أي استفسار.");
+          ? "I’m Zmzm’s store assistant. I can help with products in our catalog, their prices, sizes, stock, delivery, and ordering. If you mean a particular product, click “تبحث عن منتج؟” and enter its name; I’ll check the catalog and ask before recording an inquiry."
+          : "أنا مساعد متجر زمزم، وأساعدك في المنتجات المسجلة وأسعارها ومقاساتها وتوفرها والتوصيل والطلب. لو تقصد منتجًا معينًا، اضغط «تبحث عن منتج؟» واكتب اسمه؛ سأراجع الكتالوج وأطلب تأكيدك قبل تسجيل أي استفسار.");
       } else {
         appendMessage("assistant", result.text);
       }

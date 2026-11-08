@@ -38,10 +38,21 @@ const EGYPT_GOVERNORATES = [
   "جنوب سيناء",
 ];
 
+const DEFAULT_PRODUCT_CATEGORIES = [
+  { id: "boards", name: "قواعد كيك", sort_order: 1 },
+  { id: "boxes", name: "علب الكيك", sort_order: 2 },
+  { id: "cupcakes", name: "كب كيك", sort_order: 3 },
+  { id: "packaging", name: "تغليف", sort_order: 4 },
+  { id: "bags", name: "شنط", sort_order: 5 },
+  { id: "toppers", name: "توبرات", sort_order: 6 },
+];
+let productCategories = DEFAULT_PRODUCT_CATEGORIES;
+let categoryLabel = Object.fromEntries(productCategories.map(({ id, name }) => [id, name]));
+
 function normalizeProduct(row) {
-  const validCategories = new Set(["boards", "boxes", "cupcakes", "packaging", "bags", "toppers"]);
   const validTypes = new Set(["goldboard", "silverboard", "box", "cup", "ribbon", "bag", "topper"]);
-  const category = validCategories.has(row.category) ? row.category : "boxes";
+  const requestedCategory = String(row.category || "boxes");
+  const category = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(requestedCategory) ? requestedCategory : "boxes";
   const inferredType =
     category === "boards" ? "goldboard" :
     category === "cupcakes" ? "cup" :
@@ -165,6 +176,7 @@ async function loadProductsFromSupabase() {
 
 async function syncProductsWithSupabase() {
   const cartToggle = $("#cartToggle");
+  renderCategoryFilters();
   if (cartToggle) cartToggle.disabled = true;
   products = [];
   productsLoading = true;
@@ -178,6 +190,8 @@ async function syncProductsWithSupabase() {
     renderProducts();
     return;
   }
+
+  await loadPublicProductCategories();
 
   products = await loadProductsFromSupabase();
   let availability = new Map();
@@ -247,14 +261,52 @@ const $ = (selector) => document.querySelector(selector);
 const money = (value) =>
   `${Number(value || 0).toLocaleString("ar-EG")} ج.م`;
 
-const categoryLabel = {
-  boards: "قواعد كيك",
-  boxes: "علب الكيك",
-  cupcakes: "كب كيك",
-  packaging: "تغليف",
-  bags: "شنط",
-  toppers: "توبرات",
-};
+function renderCategoryFilters() {
+  const filterBar = $("#filterBar");
+  if (!filterBar) return;
+
+  if (state.filter !== "all" && !productCategories.some((category) => category.id === state.filter)) {
+    state.filter = "all";
+  }
+  filterBar.innerHTML = [
+    `<button class="${state.filter === "all" ? "active" : ""}" data-filter="all">الكل</button>`,
+    ...productCategories.map((category) =>
+      `<button class="${state.filter === category.id ? "active" : ""}" data-filter="${escapeHtml(category.id)}">${escapeHtml(category.name)}</button>`
+    ),
+  ].join("");
+}
+
+async function loadPublicProductCategories() {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient.from("product_categories")
+      .select("id,name,sort_order")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.info("استخدام أسماء الفئات الافتراضية لعدم تهيئة جدول الفئات بعد.", error.message);
+      renderCategoryFilters();
+      return;
+    }
+
+    const loadedCategories = (data || []).filter((category) =>
+      /^[a-z0-9][a-z0-9_-]{0,63}$/.test(String(category.id || "")) &&
+      String(category.name || "").trim()
+    );
+    if (loadedCategories.length) {
+      productCategories = loadedCategories.map((category) => ({
+        id: String(category.id),
+        name: String(category.name).trim(),
+        sort_order: Number(category.sort_order) || 0,
+      }));
+      categoryLabel = Object.fromEntries(productCategories.map(({ id, name }) => [id, name]));
+    }
+  } catch (error) {
+    console.info("استخدام أسماء الفئات الافتراضية بسبب تعذر قراءة الفئات.", error);
+  }
+  renderCategoryFilters();
+}
 
 const persistCart = () =>
   localStorage.setItem(
@@ -374,6 +426,7 @@ function matchingProducts(query) {
       product.meta,
       product.id,
       product.category,
+      categoryLabel[product.category],
       categorySearchTerms[product.category],
       specs,
     ].join(" "));

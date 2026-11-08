@@ -101,30 +101,7 @@
               <span>إجمالي المنتجات</span>
               <strong id="totalProducts">0</strong>
             </article>
-            <article class="stat-card">
-              <span>قواعد كيك</span>
-              <strong id="boardsCount">0</strong>
-            </article>
-            <article class="stat-card">
-              <span>علب الكيك</span>
-              <strong id="boxesCount">0</strong>
-            </article>
-            <article class="stat-card">
-              <span>كب كيك</span>
-              <strong id="cupcakesCount">0</strong>
-            </article>
-            <article class="stat-card">
-              <span>تغليف</span>
-              <strong id="packagingCount">0</strong>
-            </article>
-            <article class="stat-card">
-              <span>شنط</span>
-              <strong id="bagsCount">0</strong>
-            </article>
-            <article class="stat-card">
-              <span>توبرات</span>
-              <strong id="toppersCount">0</strong>
-            </article>
+            <div class="category-stats-grid" id="categoryStatsGrid" aria-label="عدد المنتجات بكل فئة"></div>
           </div>
 
           <section class="panel quick-orders-panel">
@@ -713,13 +690,9 @@
             <label>
               الفئة
               <select id="category" name="category" required>
-                <option value="boards">قواعد كيك</option>
-                <option value="boxes">علب الكيك</option>
-                <option value="cupcakes">كب كيك</option>
-                <option value="packaging">تغليف</option>
-                <option value="bags">شنط</option>
-                <option value="toppers">توبرات</option>
+                <option value="" disabled selected>جارٍ تحميل الفئات...</option>
               </select>
+              <small class="field-hint">تغيير اسم الفئة ينعكس على كل المنتجات المرتبطة بها في المتجر والإدارة.</small>
             </label>
 
             <label>
@@ -778,6 +751,28 @@
             <button class="btn btn-secondary" id="cancelProductDialog" type="button">إلغاء</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="product-dialog category-manager-dialog" id="categoryManagerDialog" aria-labelledby="categoryManagerTitle">
+      <div class="product-dialog-head">
+        <div>
+          <h2 id="categoryManagerTitle">إضافة أو تغيير فئة</h2>
+          <p class="module-hint">تغيير الاسم يحدّث عرضه لكل المنتجات التابعة للفئة في المتجر ولوحة الإدارة.</p>
+        </div>
+        <button class="icon-btn" id="closeCategoryManager" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <div class="product-dialog-content category-manager-content">
+        <p class="category-manager-setup hidden" id="categoryManagerSetup" role="status">لتفعيل إدارة الفئات، شغّل ملف <b>database/product-categories-migration.sql</b> في SQL Editor داخل Supabase.</p>
+        <div class="category-manager-list" id="categoryManagerList"></div>
+        <form class="category-manager-add" id="categoryAddForm">
+          <label for="newCategoryName">إضافة فئة جديدة</label>
+          <div class="category-manager-add-row">
+            <input id="newCategoryName" type="text" maxlength="80" minlength="2" placeholder="اكتب اسم الفئة" required />
+            <button class="btn btn-primary" id="addCategoryButton" type="submit">إضافة الفئة</button>
+          </div>
+        </form>
+        <p class="category-manager-note">الفئة الجديدة ستظهر في فلترة المتجر، ونموذج المنتجات، والإحصاءات. لا يؤدي تغيير الاسم إلى تغيير أسماء المنتجات أو أوصافها المكتوبة يدويًا.</p>
       </div>
     </dialog>
 

@@ -5,14 +5,18 @@ import { usernameToAuthEmail } from "./admin-auth.js";
 const PRODUCT_FIELDS = "id,name,category,price,old_price,tag,meta,rating,specs,image,type";
 const PRODUCT_IMAGE_BUCKET = "zmzm-product-images";
 const MAX_PRODUCT_IMAGE_SIZE = 10 * 1024 * 1024;
-const categoryNames = {
-  boards: "قواعد كيك",
-  boxes: "علب الكيك",
-  cupcakes: "كب كيك",
-  packaging: "تغليف",
-  bags: "شنط",
-  toppers: "توبرات",
-};
+const DEFAULT_PRODUCT_CATEGORIES = [
+  { id: "boards", name: "قواعد كيك", sort_order: 1 },
+  { id: "boxes", name: "علب الكيك", sort_order: 2 },
+  { id: "cupcakes", name: "كب كيك", sort_order: 3 },
+  { id: "packaging", name: "تغليف", sort_order: 4 },
+  { id: "bags", name: "شنط", sort_order: 5 },
+  { id: "toppers", name: "توبرات", sort_order: 6 },
+];
+const CATEGORY_MANAGER_OPTION = "__manage_product_categories__";
+let productCategories = DEFAULT_PRODUCT_CATEGORIES;
+let categoryNames = Object.fromEntries(productCategories.map(({ id, name }) => [id, name]));
+let productCategoriesTableAvailable = false;
 
 const productForm = document.getElementById("productForm");
 const productTableBody = document.getElementById("productTableBody");
@@ -25,6 +29,8 @@ const menuToggle = document.getElementById("menuToggle");
 const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 const adminNavigation = document.getElementById("adminNavigation");
 const productDialog = document.getElementById("productDialog");
+const categoryManagerDialog = document.getElementById("categoryManagerDialog");
+const categorySelect = document.getElementById("category");
 const orderDetailsDialog = document.getElementById("orderDetailsDialog");
 const orderReturnDialog = document.getElementById("orderReturnDialog");
 const statusWhatsAppDialog = document.getElementById("statusWhatsAppDialog");
@@ -218,12 +224,12 @@ function showAdminView(view) {
 
 function renderStats() {
   document.getElementById("totalProducts").textContent = String(products.length);
-  document.getElementById("boardsCount").textContent = String(products.filter((item) => item.category === "boards").length);
-  document.getElementById("boxesCount").textContent = String(products.filter((item) => item.category === "boxes").length);
-  document.getElementById("cupcakesCount").textContent = String(products.filter((item) => item.category === "cupcakes").length);
-  document.getElementById("packagingCount").textContent = String(products.filter((item) => item.category === "packaging").length);
-  document.getElementById("bagsCount").textContent = String(products.filter((item) => item.category === "bags").length);
-  document.getElementById("toppersCount").textContent = String(products.filter((item) => item.category === "toppers").length);
+  document.getElementById("categoryStatsGrid").innerHTML = productCategories.map((category) => `
+    <article class="stat-card">
+      <span>${escapeHtml(category.name)}</span>
+      <strong>${formatCount(products.filter((item) => item.category === category.id).length)}</strong>
+    </article>
+  `).join("");
 }
 
 function getCurrentMonthStart() {
@@ -450,6 +456,182 @@ function renderTable() {
   renderStats();
 }
 
+function refreshProductCategoryLabels() {
+  categoryNames = Object.fromEntries(productCategories.map(({ id, name }) => [id, name]));
+}
+
+function renderCategorySelect(selectedId = categorySelect.value) {
+  const availableSelection = productCategories.some((category) => category.id === selectedId)
+    ? selectedId
+    : productCategories.some((category) => category.id === "boxes")
+      ? "boxes"
+      : productCategories[0]?.id || "";
+  categorySelect.innerHTML = [
+    ...productCategories.map((category) =>
+      `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)}</option>`
+    ),
+    `<option value="${CATEGORY_MANAGER_OPTION}">＋ إضافة أو تغيير فئة…</option>`,
+  ].join("");
+  categorySelect.value = availableSelection;
+  categorySelect.dataset.previousValue = availableSelection;
+}
+
+async function loadProductCategories() {
+  try {
+    const { data, error } = await supabaseClient.from("product_categories")
+      .select("id,name,sort_order")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    productCategoriesTableAvailable = !error;
+    if (error) {
+      console.info("إدارة الفئات غير مفعّلة بعد؛ يجري استخدام الفئات الافتراضية.", error.message);
+      productCategories = DEFAULT_PRODUCT_CATEGORIES;
+    } else {
+      const loadedCategories = (data || []).filter((category) =>
+        /^[a-z0-9][a-z0-9_-]{0,63}$/.test(String(category.id || "")) &&
+        String(category.name || "").trim()
+      );
+      productCategories = loadedCategories.length ? loadedCategories.map((category) => ({
+        id: String(category.id),
+        name: String(category.name).trim(),
+        sort_order: Number(category.sort_order) || 0,
+      })) : DEFAULT_PRODUCT_CATEGORIES;
+    }
+  } catch (error) {
+    productCategoriesTableAvailable = false;
+    productCategories = DEFAULT_PRODUCT_CATEGORIES;
+    console.info("إدارة الفئات غير مفعّلة بعد؛ يجري استخدام الفئات الافتراضية.", error);
+  }
+
+  refreshProductCategoryLabels();
+  renderCategorySelect();
+  renderStats();
+}
+
+function renderCategoryManager() {
+  const setupMessage = document.getElementById("categoryManagerSetup");
+  const categoryList = document.getElementById("categoryManagerList");
+  const addButton = document.getElementById("addCategoryButton");
+  setupMessage.classList.toggle("hidden", productCategoriesTableAvailable);
+  addButton.disabled = !productCategoriesTableAvailable;
+  categoryList.innerHTML = productCategories.map((category) => `
+    <div class="category-manager-row" data-category-id="${escapeHtml(category.id)}">
+      <label>
+        اسم الفئة
+        <input type="text" data-category-name maxlength="80" minlength="2" value="${escapeHtml(category.name)}" ${productCategoriesTableAvailable ? "" : "disabled"} />
+      </label>
+      <button class="btn btn-secondary" type="button" data-save-category ${productCategoriesTableAvailable ? "" : "disabled"}>حفظ الاسم</button>
+    </div>
+  `).join("");
+}
+
+function openCategoryManager() {
+  renderCategoryManager();
+  categoryManagerDialog.showModal();
+}
+
+function categoryNameExists(name, exceptId = "") {
+  const normalizedName = name.trim().toLocaleLowerCase("ar-EG");
+  return productCategories.some((category) =>
+    category.id !== exceptId && category.name.trim().toLocaleLowerCase("ar-EG") === normalizedName
+  );
+}
+
+document.getElementById("categoryManagerList").addEventListener("click", async (event) => {
+  const saveButton = event.target.closest("[data-save-category]");
+  if (!saveButton) return;
+  if (!productCategoriesTableAvailable) {
+    showToast("شغّل ملف تهيئة الفئات في Supabase أولاً.");
+    return;
+  }
+
+  const row = saveButton.closest("[data-category-id]");
+  const categoryId = row.dataset.categoryId;
+  const name = row.querySelector("[data-category-name]").value.trim();
+  if (name.length < 2 || name.length > 80) {
+    showToast("اكتب اسم فئة من حرفين إلى ٨٠ حرفاً.");
+    return;
+  }
+  if (categoryNameExists(name, categoryId)) {
+    showToast("يوجد بالفعل فئة بهذا الاسم.");
+    return;
+  }
+
+  saveButton.disabled = true;
+  try {
+    const { data, error } = await supabaseClient.from("product_categories")
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq("id", categoryId)
+      .select("id,name,sort_order")
+      .single();
+    if (error) throw error;
+
+    productCategories = productCategories.map((category) => category.id === categoryId
+      ? { ...category, name: String(data.name).trim() }
+      : category);
+    refreshProductCategoryLabels();
+    renderCategorySelect(categorySelect.value);
+    renderTable();
+    renderCategoryManager();
+    if (location.hash === "#analytics") loadBusinessAnalytics();
+    showToast("تم تغيير اسم الفئة في كل المنتجات المرتبطة بها.");
+  } catch (error) {
+    console.error("تعذر تغيير اسم الفئة.", error);
+    showToast(error.code === "23505" ? "يوجد بالفعل فئة بهذا الاسم." : "تعذر تغيير اسم الفئة. تحقق من اتصال Supabase.");
+  } finally {
+    saveButton.disabled = false;
+  }
+});
+
+document.getElementById("categoryAddForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!productCategoriesTableAvailable) {
+    showToast("شغّل ملف تهيئة الفئات في Supabase أولاً.");
+    return;
+  }
+
+  const input = document.getElementById("newCategoryName");
+  const name = input.value.trim();
+  const addButton = document.getElementById("addCategoryButton");
+  if (name.length < 2 || name.length > 80) {
+    showToast("اكتب اسم فئة من حرفين إلى ٨٠ حرفاً.");
+    return;
+  }
+  if (categoryNameExists(name)) {
+    showToast("يوجد بالفعل فئة بهذا الاسم.");
+    return;
+  }
+
+  addButton.disabled = true;
+  try {
+    const sortOrder = Math.max(0, ...productCategories.map((category) => Number(category.sort_order) || 0)) + 1;
+    const id = `custom-${crypto.randomUUID().replaceAll("-", "")}`;
+    const { data, error } = await supabaseClient.from("product_categories")
+      .insert({ id, name, sort_order: sortOrder })
+      .select("id,name,sort_order")
+      .single();
+    if (error) throw error;
+
+    productCategories = [...productCategories, {
+      id: String(data.id),
+      name: String(data.name).trim(),
+      sort_order: Number(data.sort_order) || sortOrder,
+    }];
+    refreshProductCategoryLabels();
+    renderCategorySelect(id);
+    renderTable();
+    input.value = "";
+    renderCategoryManager();
+    showToast("تمت إضافة الفئة، ويمكنك استخدامها عند إضافة منتج.");
+  } catch (error) {
+    console.error("تعذرت إضافة الفئة.", error);
+    showToast(error.code === "23505" ? "يوجد بالفعل فئة بهذا الاسم." : "تعذرت إضافة الفئة. تحقق من اتصال Supabase.");
+  } finally {
+    addButton.disabled = !productCategoriesTableAvailable;
+  }
+});
+
 async function saveProductOrder(productIds) {
   if (productReorderBusy || !supabaseClient) return;
   if (!productOrderingEnabled) {
@@ -560,6 +742,7 @@ async function loadProducts() {
 
 function resetForm() {
   productForm.reset();
+  categorySelect.dataset.previousValue = categorySelect.value;
   if (productDialog.open) productDialog.close();
   document.getElementById("productId").value = "";
   currentImageInput.value = "";
@@ -1431,7 +1614,8 @@ async function openAccountEntryDialog() {
 function fillForm(product) {
   document.getElementById("productId").value = String(product.id);
   document.getElementById("name").value = product.name;
-  document.getElementById("category").value = product.category;
+  categorySelect.value = product.category;
+  categorySelect.dataset.previousValue = product.category;
   document.getElementById("price").value = String(product.price);
   document.getElementById("purchaseCost").value = product.purchaseCost == null ? "" : String(product.purchaseCost);
   document.getElementById("oldPrice").value = product.old ? String(product.old) : "";
@@ -1677,6 +1861,20 @@ document.getElementById("purchaseCost").addEventListener("input", updateProductP
 
 document.getElementById("closeProductDialog").addEventListener("click", resetForm);
 document.getElementById("cancelProductDialog").addEventListener("click", resetForm);
+
+categorySelect.addEventListener("change", () => {
+  if (categorySelect.value === CATEGORY_MANAGER_OPTION) {
+    categorySelect.value = categorySelect.dataset.previousValue || "boxes";
+    openCategoryManager();
+    return;
+  }
+  categorySelect.dataset.previousValue = categorySelect.value;
+});
+
+document.getElementById("closeCategoryManager").addEventListener("click", () => categoryManagerDialog.close());
+categoryManagerDialog.addEventListener("click", (event) => {
+  if (event.target === categoryManagerDialog) categoryManagerDialog.close();
+});
 
 productDialog.addEventListener("click", (event) => {
   if (event.target === productDialog) resetForm();
@@ -2206,6 +2404,7 @@ loginForm.addEventListener("submit", async (event) => {
 
     isAdmin = true;
     updateAuthUI();
+    await loadProductCategories();
     await loadProducts();
     location.hash = "dashboard";
     showAdminView("dashboard");
@@ -2259,6 +2458,7 @@ async function initializeAdmin() {
     isAdmin = data.user?.app_metadata?.role === "admin";
     updateAuthUI();
     if (isAdmin) {
+      await loadProductCategories();
       await loadProducts();
       showAdminView(location.hash.slice(1) || "dashboard");
     }
